@@ -1,0 +1,20 @@
+{
+  "name": "save",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev -w @save/api",
+    "dev:web": "npm run dev -w @save/mini-app",
+    "build": "npm run build --workspaces",
+    "db:generate": "npm run db:generate -w @save/api",
+    "db:push": "npm run db:push -w @save/api",
+    "test": "npm run test -w @save/api",
+    "format": "prettier --write apps scripts package.json compose.yaml README.md",
+    "test:integration": "node scripts/integration.mjs"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.10"
+  }
+}

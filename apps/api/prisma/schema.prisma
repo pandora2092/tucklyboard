@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+model User {
+  id String @id @default(cuid())
+  telegramId String @unique
+  name String
+  items Item[]
+  collections Collection[]
+}
+model Collection {
+  id String @id @default(cuid())
+  name String
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  items Item[]
+  @@unique([userId, name])
+}
+model Item {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  type String
+  title String
+  text String @default("")
+  url String?
+  source String @default("")
+  tags String[] @default([])
+  collectionId String?
+  collection Collection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  mediaKey String?
+  mime String?
+  telegramMessageId String? @unique
+  createdAt DateTime @default(now())
+  @@index([userId, createdAt])
+}
