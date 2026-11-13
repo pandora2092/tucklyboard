@@ -1,20 +1,43 @@
 {
-  "name": "save",
+  "name": "tuckly",
   "private": true,
   "workspaces": [
+    "packages/*",
     "apps/*"
   ],
   "scripts": {
-    "dev:api": "npm run dev -w @save/api",
-    "dev:web": "npm run dev -w @save/mini-app",
-    "build": "npm run build --workspaces",
-    "db:generate": "npm run db:generate -w @save/api",
-    "db:push": "npm run db:push -w @save/api",
-    "test": "npm run test -w @save/api",
-    "format": "prettier --write apps scripts package.json compose.yaml README.md",
-    "test:integration": "node scripts/integration.mjs"
+    "dev:api": "npm run dev -w @tuckly/api",
+    "dev:web": "npm run dev -w @tuckly/mini-app",
+    "build": "npm run build:contracts && npm run build -w @tuckly/api && npm run build -w @tuckly/mini-app",
+    "db:generate": "npm run db:generate -w @tuckly/api",
+    "db:push": "npm run db:push -w @tuckly/api",
+    "test": "npm run test -w @tuckly/contracts && npm run test -w @tuckly/api",
+    "format": "prettier --write .",
+    "test:integration": "node scripts/integration.mjs",
+    "dev": "node scripts/dev.mjs",
+    "build:contracts": "npm run build -w @tuckly/contracts",
+    "pretest": "npm run build:contracts",
+    "format:check": "prettier --check .",
+    "check": "npm run lint && npm run format:check && npm run db:generate && npm run build && npm test && npm run test:integration",
+    "stop": "docker compose stop postgres",
+    "lint": "npm run lint:code && npm run lint:styles",
+    "lint:fix": "oxlint --fix && npm run lint:styles:fix && npm run format",
+    "lint:code": "oxlint",
+    "lint:styles": "stylelint \"apps/**/*.css\"",
+    "lint:styles:fix": "stylelint \"apps/**/*.css\" --fix"
   },
   "devDependencies": {
-    "prettier": "^3.9.10"
-  }
+    "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
+    "oxlint": "^1.66.0",
+    "oxlint-tsgolint": "^0.23.0",
+    "prettier": "^3.9.10",
+    "stylelint": "^17.16.0",
+    "stylelint-config-recess-order": "^7.10.0",
+    "stylelint-config-standard": "^40.0.0",
+    "stylelint-prettier": "^5.1.0"
+  },
+  "engines": {
+    "node": "^22.13.0 || >=24"
+  },
+  "type": "module"
 }

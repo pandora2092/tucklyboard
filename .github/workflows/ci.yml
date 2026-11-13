@@ -1,0 +1,41 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: save
+          POSTGRES_PASSWORD: save
+          POSTGRES_DB: save_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U save -d save_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://save:save@localhost:5432/save_test
+      BOT_TOKEN: ''
+      BOT_POLLING: 'false'
+      DEV_AUTH: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run db:push
+      - run: npm run check

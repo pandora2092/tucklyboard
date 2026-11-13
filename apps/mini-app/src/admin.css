@@ -1,0 +1,183 @@
+.admin-main {
+  width: 100%;
+  max-width: 1400px;
+  padding: 0 32px 48px;
+  margin: 0 auto;
+}
+
+.admin-brand {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -2px;
+  text-decoration: none;
+}
+
+.admin-brand span {
+  margin-left: 5px;
+  color: #789465;
+}
+
+.admin-main header > a:last-child {
+  font-size: 12px;
+}
+
+.admin-main .heading {
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.admin-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-metrics article,
+.admin-access {
+  padding: 24px;
+  background: #fffefa;
+  border: 1px solid #e2e3d9;
+  border-radius: 14px;
+}
+
+.admin-metrics p {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: #78836d;
+}
+
+.admin-metrics strong {
+  font-size: 32px;
+  font-weight: 600;
+}
+
+.admin-note {
+  margin: 18px 0;
+  font-size: 12px;
+  line-height: 1.8;
+  color: #78836d;
+}
+
+.admin-users {
+  margin-top: 32px;
+}
+
+.admin-filters,
+.admin-pagination,
+.admin-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.admin-filters select {
+  max-width: 100%;
+  padding: 12px;
+  color: inherit;
+  background: #fffefa;
+  border: 1px solid #e2e3d9;
+  border-radius: 9px;
+}
+
+.admin-table-scroll {
+  overflow-x: auto;
+  border: 1px solid #e2e3d9;
+  border-radius: 12px;
+}
+
+.admin-table {
+  width: 100%;
+  font-size: 12px;
+  text-align: left;
+  border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 16px;
+  border-bottom: 1px solid #e2e3d9;
+}
+
+.admin-table th {
+  font-size: 11px;
+  font-weight: 600;
+  color: #78836d;
+  background: #eeeee7;
+}
+
+.admin-table td {
+  background: #fffefa;
+}
+
+.admin-table small {
+  display: block;
+  margin-top: 6px;
+  color: #78836d;
+  white-space: nowrap;
+}
+
+.admin-user-link {
+  padding: 0;
+  font-weight: 700;
+  color: #536c42;
+  text-align: left;
+  overflow-wrap: anywhere;
+  text-decoration: underline;
+}
+
+.admin-pagination {
+  justify-content: center;
+  margin-top: 20px;
+  font-size: 12px;
+}
+
+.admin-detail {
+  width: 620px;
+}
+
+.admin-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  font-size: 12px;
+}
+
+.admin-facts dt {
+  margin-bottom: 6px;
+  color: #78836d;
+}
+
+.admin-facts dd {
+  margin: 0;
+}
+
+@media (width <= 700px) {
+  .admin-main {
+    padding: 0 16px 32px;
+  }
+
+  .admin-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .admin-metrics article {
+    padding: 16px;
+  }
+
+  .admin-metrics strong {
+    font-size: 26px;
+  }
+
+  .admin-filters .search {
+    flex-basis: 65%;
+    min-width: 0;
+  }
+
+  .admin-table th,
+  .admin-table td {
+    padding: 12px;
+  }
+}

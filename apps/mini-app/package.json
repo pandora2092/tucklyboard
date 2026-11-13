@@ -1,5 +1,5 @@
 {
-  "name": "@save/mini-app",
+  "name": "@tuckly/mini-app",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,9 @@
   },
   "dependencies": {
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "@tuckly/contracts": "*",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

@@ -1,0 +1,13 @@
+{
+  "plugins": ["stylelint-prettier"],
+  "extends": [
+    "stylelint-config-standard",
+    "stylelint-config-recess-order",
+    "stylelint-prettier/recommended"
+  ],
+  "rules": {
+    "selector-class-pattern": ".+",
+    "alpha-value-notation": "number",
+    "color-function-notation": "modern"
+  }
+}

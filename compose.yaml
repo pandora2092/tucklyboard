@@ -5,21 +5,22 @@ services:
       POSTGRES_USER: save
       POSTGRES_PASSWORD: save
       POSTGRES_DB: save
-    ports: ["127.0.0.1:5432:5432"]
-    volumes: ["postgres:/var/lib/postgresql/data"]
+    ports: ['127.0.0.1:5432:5432']
+    volumes: ['postgres:/var/lib/postgresql/data']
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U save"]
+      test: ['CMD-SHELL', 'pg_isready -U save']
       interval: 5s
       retries: 10
   minio:
+    profiles: ['legacy-storage']
     build: ./infra/minio
     command: server /data --console-address :9001
     environment:
       MINIO_API_CORS_ALLOW_ORIGIN: ${WEB_ORIGIN:-http://localhost:5173}
       MINIO_ROOT_USER: saveadmin
       MINIO_ROOT_PASSWORD: saveadminsecret
-    ports: ["127.0.0.1:9000:9000", "127.0.0.1:9001:9001"]
-    volumes: ["minio:/data"]
+    ports: ['127.0.0.1:9000:9000', '127.0.0.1:9001:9001']
+    volumes: ['minio:/data']
 volumes:
   postgres:
   minio:

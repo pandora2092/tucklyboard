@@ -1,4 +1,8 @@
 node_modules
 dist
 .env
+.env.production
+*.tar.gz
+*.sql.gz
+backups/
 *.tsbuildinfo
