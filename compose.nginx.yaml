@@ -1,0 +1,8 @@
+# Use together with compose.production.yaml when host Nginx owns ports 80/443.
+# Requires Docker Compose >= 2.24.4 (!override replaces the original port list).
+services:
+  web:
+    ports: !override
+      - '127.0.0.1:8085:80'
+    volumes:
+      - ./infra/production/Caddyfile.nginx:/etc/caddy/Caddyfile:ro

@@ -6,7 +6,7 @@
 
 У DNS-провайдера домена создайте A-запись: имя `@`, значение `45.114.61.141`. Это REG.RU, если домен использует его NS; при других NS запись меняется у соответствующего DNS-провайдера. Неверная AAAA-запись для этого домена должна быть исправлена или удалена, если IPv6 не используется.
 
-Порты TCP 80 и 443 должны быть доступны в настройках FirstVDS и серверного firewall. SSH должен оставаться доступным. Если на сервере уже работают Nginx, Apache или другая панель, использующая 80/443, сначала согласуйте использование портов; не запускайте второй веб-сервер поверх существующего.
+Порты TCP 80 и 443 должны быть доступны в настройках FirstVDS и серверного firewall. SSH должен оставаться доступным. Если на сервере уже работает Nginx, используйте [вариант с Nginx](#если-на-сервере-уже-работает-nginx) ниже. Он сохраняет существующие сайты и публикует Docker-приложение на локальном порту 8085.
 
 После обновления DNS Caddy автоматически получит и будет продлевать HTTPS-сертификат. Отдельная покупка сертификата не нужна: https://caddyserver.com/docs/automatic-https.
 
@@ -82,6 +82,55 @@ docker compose --env-file .env.production -f compose.production.yaml logs --tail
 Ожидаемый ответ health: `{"ok":true}`. В BotFather задайте URL кнопки меню `https://tucklyboard.ru`. Затем откройте `@tuckly_bot`, отправьте `/start`, сохраните тестовый материал, проверьте приложение. Для админки отправьте `/admin` с аккаунта, чей числовой ID указан в `ADMIN_TELEGRAM_IDS`. Обычный браузер без Telegram-авторизации должен показывать инструкцию для входа, а не чужие данные.
 
 Если HTTPS не запускается, проверьте DNS, доступность 80/443 и логи `web`. Если API не запускается — логи `migrate` и `api`. Не публикуйте `.env.production` или полный вывод `docker compose config`: там есть секреты.
+
+## Если на сервере уже работает Nginx
+
+Проверьте, что для `tucklyboard.ru` ещё нет отдельного server-блока:
+
+```bash
+nginx -T 2>/dev/null | grep -n 'server_name.*tucklyboard'
+```
+
+Если конфиг найден, измените его вместо создания второго. Если вывода нет, выполните следующие шаги. Используется Docker Compose 2.24.4 или новее; версию можно проверить командой `docker compose version`.
+
+```bash
+cd /opt/tuckly
+git pull --ff-only
+docker compose --env-file .env.production -f compose.production.yaml -f compose.nginx.yaml up -d --no-deps web
+curl --fail http://127.0.0.1:8085/api/health
+```
+
+Эта команда переключает только `web` на `127.0.0.1:8085`, используя уже собранный образ. API и база остаются работающими. Если это самый первый запуск и образы ещё не собраны, используйте `up -d --build` с обоими Compose-файлами вместо `up -d --no-deps web`.
+
+Создайте отдельный сайт в Nginx (путь ниже соответствует стандартной установке Ubuntu):
+
+```bash
+cp -n infra/production/nginx-tuckly.conf /etc/nginx/sites-available/tucklyboard.ru
+ln -s /etc/nginx/sites-available/tucklyboard.ru /etc/nginx/sites-enabled/tucklyboard.ru
+nginx -t && systemctl reload nginx
+curl --fail --resolve tucklyboard.ru:80:127.0.0.1 http://tucklyboard.ru/api/health
+```
+
+Существующий Nginx остаётся на портах 80/443. Для tuckly проверяется отдельный server-блок; остальные конфиги не заменяются. Если `ln` сообщает, что ссылка уже существует, проверьте её, а не создавайте повторно. Успешная проверка health возвращает `{"ok":true}`.
+
+После того как A-запись домена указывает на сервер, включите HTTPS. Если Certbot уже установлен, используйте его текущую установку. Для установки из репозитория Ubuntu:
+
+```bash
+apt-get update
+apt-get install -y certbot python3-certbot-nginx
+certbot --nginx -d tucklyboard.ru
+curl --fail https://tucklyboard.ru/api/health
+```
+
+В этом режиме сертификаты обслуживает Nginx/Certbot. Внутренний Caddy работает по HTTP и не запрашивает публичные сертификаты. Домен в `.env.production` и адрес Mini App остаются HTTPS.
+
+При всех дальнейших обновлениях сохраняйте оба Compose-файла в команде:
+
+```bash
+docker compose --env-file .env.production -f compose.production.yaml -f compose.nginx.yaml up -d --build
+```
+
+Если запустить только `compose.production.yaml`, Docker снова попытается занять 80/443. Не копируйте начальный HTTP-конфиг поверх файла, уже изменённого Certbot для HTTPS.
 
 ## Обновления и резервная копия
 
