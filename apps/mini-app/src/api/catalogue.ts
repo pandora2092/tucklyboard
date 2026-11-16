@@ -20,11 +20,13 @@ import {
   SpaceSchema,
   SpacesSchema,
   UpdateItemSchema,
+  UpdateSpaceSchema,
   type BulkAction,
   type CreateItem,
   type ItemDetails,
   type ItemQuery,
   type SmartRules,
+  type SpaceTheme,
   type UpdateItem,
 } from '@tuckly/contracts';
 
@@ -36,6 +38,12 @@ export const catalogueApi = {
   },
   createSpace(name: string) {
     return request('spaces', SpaceSchema, { method: 'POST', body: { name } });
+  },
+  updateSpaceTheme(id: string, theme: SpaceTheme) {
+    return request(`spaces/${encodeURIComponent(id)}`, OkSchema, {
+      method: 'PATCH',
+      body: UpdateSpaceSchema.parse({ theme }),
+    });
   },
   members(id: string) {
     return request(`spaces/${id}/members`, MembersSchema);
@@ -56,6 +64,9 @@ export const catalogueApi = {
     return request(`spaces/${id}/invites`, z.array(InviteSchema));
   },
   revoke(id: string, inviteId: string) {
+    return request(`spaces/${id}/invites/${inviteId}/revoke`, OkSchema, { method: 'POST' });
+  },
+  deleteInvite(id: string, inviteId: string) {
     return request(`spaces/${id}/invites/${inviteId}`, OkSchema, { method: 'DELETE' });
   },
   inviteInfo(token: string) {

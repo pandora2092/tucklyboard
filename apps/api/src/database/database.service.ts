@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException, OnApplicationShutdown, OnModuleInit } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
+import { ensureStatuses } from './statuses';
+
 @Injectable()
 export class Store extends PrismaClient implements OnApplicationShutdown, OnModuleInit {
   async onModuleInit() {
@@ -29,6 +31,7 @@ export class Store extends PrismaClient implements OnApplicationShutdown, OnModu
     await this.$transaction(async tx => {
       await tx.$executeRaw`INSERT INTO "Space" ("id","name","ownerId","personalUserId") VALUES (${id},'Моё пространство',${userId},${userId}) ON CONFLICT ("id") DO NOTHING`;
       await tx.$executeRaw`INSERT INTO "SpaceMember" ("spaceId","userId","role") VALUES (${id},${userId},'owner') ON CONFLICT ("spaceId","userId") DO NOTHING`;
+      await ensureStatuses(tx, id);
       await tx.collection.updateMany({ where: { userId, spaceId: null }, data: { spaceId: id } });
       await tx.$executeRaw`INSERT INTO "ItemCollection" ("itemId","collectionId") SELECT i."id",i."collectionId" FROM "Item" i JOIN "Collection" c ON c."id"=i."collectionId" WHERE i."userId"=${userId} AND i."spaceId" IS NULL AND c."spaceId"=${id} ON CONFLICT DO NOTHING`;
       await tx.item.updateMany({ where: { userId, spaceId: null }, data: { spaceId: id } });

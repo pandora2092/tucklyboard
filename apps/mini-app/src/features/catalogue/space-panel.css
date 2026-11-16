@@ -1,0 +1,304 @@
+.dialog.space-panel {
+  width: 620px;
+  max-width: 100%;
+  padding: 28px;
+}
+
+.space-panel .dialog-top {
+  align-items: flex-start;
+  margin-bottom: var(--spacing-3);
+}
+
+.space-panel .dialog-top h2 {
+  font-size: 24px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.space-panel-eyebrow {
+  margin: 0 0 var(--spacing-2);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--space-muted);
+  letter-spacing: 1.5px;
+}
+
+.space-role-badge {
+  display: inline-flex;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--space-accent);
+  background: var(--space-soft);
+  border-radius: var(--radius-sm);
+}
+
+.space-panel-section {
+  padding-top: 22px;
+  margin-top: 22px;
+  border-top: 1px solid var(--space-border);
+}
+
+.space-panel-section h3 {
+  display: flex;
+  gap: var(--spacing-2);
+  align-items: center;
+  margin: 0 0 14px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.space-section-count {
+  padding: 3px 7px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--space-muted);
+  background: var(--space-soft);
+  border-radius: var(--radius-sm);
+}
+
+.space-members,
+.space-invites {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.space-member {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: var(--spacing-3);
+  background: var(--space-surface);
+  border: 1px solid var(--space-border);
+  border-radius: 10px;
+}
+
+.member-initial {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--space-accent);
+  background: var(--space-soft);
+  border-radius: 50%;
+}
+
+.member-name {
+  flex: 1;
+  min-width: 80px;
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.member-role {
+  font-size: 11px;
+  color: var(--space-muted);
+}
+
+.member-controls {
+  display: flex;
+  gap: var(--spacing-2);
+  align-items: center;
+}
+
+.space-panel .member-controls .select-trigger {
+  width: auto;
+  max-width: 140px;
+  min-height: var(--control-height-compact);
+  padding: 7px;
+  font-size: 11px;
+}
+
+.share-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--spacing-3);
+  align-items: end;
+}
+
+.invite-permissions {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--space-muted);
+}
+
+.invite-role-switch {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: var(--spacing-1);
+  padding: var(--spacing-1);
+  background: var(--space-soft);
+  border: 1px solid var(--space-border);
+  border-radius: 10px;
+}
+
+.invite-role-switch button {
+  min-height: var(--control-height);
+  padding: var(--spacing-2) 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--space-muted);
+  border: 1px solid transparent;
+  border-radius: 7px;
+}
+
+.invite-role-switch button:hover {
+  background: var(--space-soft);
+}
+
+.invite-role-switch button[aria-pressed='true'] {
+  font-weight: 700;
+  color: var(--space-accent);
+  background: var(--space-surface);
+  border-color: var(--space-border);
+}
+
+.share-create {
+  min-height: var(--control-height);
+  white-space: nowrap;
+}
+
+.share-hint {
+  margin: 10px 0 0;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--space-muted);
+}
+
+.generated-invite {
+  padding: var(--spacing-4);
+  margin-top: var(--spacing-4);
+  background: var(--space-soft);
+  border: 1px solid var(--space-border);
+  border-radius: var(--radius-panel);
+}
+
+.space-panel .generated-invite > label {
+  margin: 0 0 var(--spacing-2);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--space-accent);
+}
+
+.share-link-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--spacing-2);
+}
+
+.space-panel .share-link-row input {
+  min-width: 0;
+  min-height: 40px;
+  font-size: 11px;
+  background: var(--space-surface);
+}
+
+.share-secondary {
+  min-height: 40px;
+  padding: var(--spacing-2) var(--spacing-3);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--space-accent);
+  background: var(--space-surface);
+  border: 1px solid var(--space-border);
+  border-radius: 8px;
+}
+
+.share-secondary:hover {
+  background: var(--space-background);
+}
+
+.space-invite-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--spacing-3);
+  align-items: center;
+  padding: var(--spacing-3);
+  background: var(--space-surface);
+  border: 1px solid var(--space-border);
+  border-radius: 10px;
+}
+
+.invite-details strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.invite-details small {
+  display: block;
+  margin-top: 6px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--space-muted);
+}
+
+.invite-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.invite-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.invite-state {
+  padding: 3px 6px;
+  font-size: 9px;
+  color: var(--space-muted);
+  background: var(--space-soft);
+  border-radius: 5px;
+}
+
+.invite-state.active {
+  color: var(--space-accent);
+  background: var(--space-soft);
+}
+
+.share-danger {
+  min-height: 32px;
+  padding: 6px var(--spacing-2);
+  font-size: 11px;
+  color: #925b4a;
+  border: 1px solid #e6d8cf;
+  border-radius: 7px;
+}
+
+.share-danger:hover {
+  background: #f8eee8;
+}
+
+@media (width <= 480px) {
+  .dialog.space-panel {
+    padding: var(--spacing-5);
+  }
+
+  .share-controls {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .member-controls {
+    width: 100%;
+    padding-left: 42px;
+  }
+
+  .space-panel .member-controls .select-trigger {
+    flex: 1;
+    max-width: none;
+  }
+}

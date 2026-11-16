@@ -2,6 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { load } from 'cheerio/slim';
 
 import { youtubeId } from './link-preview.service';
+import { embedEndpoints, readEmbed } from './oembed';
+import { PAGE_LIMIT, tiktokMetadata } from './page-data';
 import { PublicHttp } from './public-http';
 
 export type SiteMetadata = {
@@ -40,39 +42,43 @@ export function parseMetadata(html: string): SiteMetadata {
 export class SiteMetadataService {
   constructor(@Inject(PublicHttp) private readonly http: PublicHttp) {}
   async get(url: string): Promise<SiteMetadata> {
+    const signal = AbortSignal.timeout(12000);
     const video = youtubeId(url);
     if (video) {
       const endpoint = new URL('https://www.youtube.com/oembed');
       endpoint.searchParams.set('url', `https://www.youtube.com/watch?v=${video}`);
       endpoint.searchParams.set('format', 'json');
-      const page = await this.http.get(endpoint.href, {
-        maxBytes: 256 * 1024,
-        accept: 'application/json',
-      });
-      const value: unknown = JSON.parse(page.bytes.toString('utf8'));
-      if (value && typeof value === 'object') {
+      const data = await readEmbed(this.http, endpoint.href, signal);
+      if (data?.title) {
         return {
-          title: clean(
-            'title' in value && typeof value.title === 'string' ? value.title : undefined,
-            300,
-          ),
+          title: clean(data.title, 300),
           description: null,
-          author: clean(
-            'author_name' in value && typeof value.author_name === 'string'
-              ? value.author_name
-              : undefined,
-            200,
-          ),
+          author: clean(data.author_name, 200),
         };
       }
     }
     const page = await this.http.get(url, {
-      maxBytes: 1024 * 1024,
+      maxBytes: PAGE_LIMIT,
       accept: 'text/html,application/xhtml+xml',
+      signal,
     });
     if (!/^(text\/html|application\/xhtml\+xml)\b/i.test(page.contentType)) {
       throw new Error('No page metadata');
     }
-    return parseMetadata(page.bytes.toString('utf8'));
+    const html = page.bytes.toString('utf8');
+    const metadata = parseMetadata(html);
+    const tiktok = tiktokMetadata(html, page.url);
+    metadata.title = clean(tiktok?.title, 300) || metadata.title;
+    metadata.author = clean(tiktok?.author, 200) || metadata.author;
+    for (const endpoint of embedEndpoints(html, page.url)) {
+      const data = await readEmbed(this.http, endpoint, signal);
+      if (!data) {
+        continue;
+      }
+      metadata.title = clean(data.title, 300) || metadata.title;
+      metadata.author = clean(data.author_name, 200) || metadata.author;
+      break;
+    }
+    return metadata;
   }
 }

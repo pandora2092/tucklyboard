@@ -1,0 +1,188 @@
+.app {
+  background: var(--space-background);
+}
+
+.app aside {
+  background: var(--space-soft);
+  border-color: var(--space-border);
+}
+
+.app .avatar,
+.app .nav.active,
+.app .bulk-tools {
+  color: var(--space-accent);
+  background: var(--space-soft);
+}
+
+.app .nav.active {
+  background: var(--space-surface);
+}
+
+.app h1 > span,
+.app .brand span {
+  color: var(--space-accent);
+}
+
+.app .primary {
+  color: #fff;
+  background: var(--space-accent);
+}
+
+.app .filter-create,
+.app .space-settings-button,
+.app .space-settings-button:hover {
+  color: var(--space-accent);
+  background: var(--space-soft);
+  border-color: var(--space-border);
+}
+
+.app .library-header {
+  align-items: end;
+  padding: var(--spacing-4) var(--spacing-3) var(--spacing-3);
+  background: var(--space-soft);
+  border-bottom: 3px solid var(--space-accent);
+  border-radius: 0 0 var(--radius-panel) var(--radius-panel);
+}
+
+.app .space-picker .select-trigger {
+  color: var(--space-accent);
+  border-color: var(--space-border);
+}
+
+.space-picker .select-trigger::before {
+  flex: 0 0 9px;
+  width: 9px;
+  height: 9px;
+  content: '';
+  background: var(--space-accent);
+  border-radius: 50%;
+}
+
+.space-picker .select-value {
+  flex: 1;
+}
+
+.space-color-dot {
+  display: inline-block;
+  flex: 0 0 9px;
+  width: 9px;
+  height: 9px;
+  background: var(--space-accent);
+  border-radius: 50%;
+}
+
+.space-switch-notice {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px var(--spacing-3);
+  margin-top: var(--spacing-3);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--space-accent);
+  background: var(--space-soft);
+  border: 1px solid var(--space-border);
+  border-radius: var(--radius-control);
+}
+
+.space-switch-notice button {
+  flex-shrink: 0;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  margin-left: auto;
+  font-size: 20px;
+}
+
+.space-theme-settings {
+  padding-bottom: var(--spacing-5);
+  margin-bottom: var(--spacing-5);
+  border-bottom: 1px solid var(--space-border);
+}
+
+.theme-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+  margin: 14px 0;
+}
+
+.theme-option {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-height: 38px;
+  padding: 5px var(--spacing-2);
+  font-size: 11px;
+  color: var(--space-accent);
+  border: 1px solid var(--space-border);
+  border-radius: var(--radius-control);
+}
+
+.theme-option[aria-pressed='true'] {
+  color: var(--space-accent);
+  background: var(--space-soft);
+  border-color: var(--space-accent);
+}
+
+.theme-option:disabled {
+  cursor: default;
+}
+
+.theme-swatch {
+  display: grid;
+  flex: 0 0 22px;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: #fff;
+  background: var(--space-accent);
+  border-radius: 50%;
+}
+
+.theme-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4);
+  margin: 14px 0;
+  font-size: 12px;
+  color: var(--space-accent);
+  background: var(--space-background);
+  border: 1px solid var(--space-border);
+  border-top: 4px solid var(--space-accent);
+  border-radius: 10px;
+}
+
+.theme-preview strong {
+  display: flex;
+  gap: var(--spacing-2);
+  align-items: center;
+}
+
+.theme-preview-action {
+  align-self: flex-start;
+  padding: var(--spacing-2) var(--spacing-3);
+  color: #fff;
+  background: var(--space-accent);
+  border-radius: 8px;
+}
+
+:root input[type='checkbox']:checked,
+:root input[type='checkbox']:indeterminate {
+  background-color: var(--space-accent);
+  border-color: var(--space-accent);
+}
+
+:root :focus-visible {
+  outline-color: var(--space-accent);
+}
+
+:root .select-option.highlighted {
+  background: var(--space-soft);
+}
+
+.app .collection-option:has(input:checked) {
+  background: var(--space-soft);
+  border-color: var(--space-border);
+}

@@ -1,0 +1,16 @@
+:root :focus {
+  outline: none;
+}
+
+:root :focus-visible {
+  outline: 2px solid var(--space-accent, #79926c);
+  outline-offset: 2px;
+}
+
+:root .search input:focus-visible {
+  outline: none;
+}
+
+:root[data-focus-input='pointer'] :focus {
+  outline: none;
+}

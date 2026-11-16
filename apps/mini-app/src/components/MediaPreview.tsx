@@ -1,3 +1,5 @@
+import './item-card.css';
+
 import { useEffect, useState } from 'react';
 
 import type { Item } from '@tuckly/contracts';

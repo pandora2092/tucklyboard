@@ -1,9 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { Collection, Item, ItemQuery, Space } from '@tuckly/contracts';
+import {
+  COPY,
+  type BookmarkStatus,
+  type Collection,
+  type Item,
+  type ItemQuery,
+  type Space,
+  type SpaceTheme,
+} from '@tuckly/contracts';
 
 import { catalogueApi } from '../../api/catalogue';
 import { errorMessage } from '../../api/client';
+import { statusesApi } from '../../api/statuses';
+import { useSpaceTheme } from '../../lib/space-theme';
 
 export function useCatalogue() {
   const [items, setItems] = useState<Item[]>([]),
@@ -21,11 +31,20 @@ export function useCatalogue() {
   const [spaces, setSpaces] = useState<Space[]>([]),
     [spaceId, setSpaceId] = useState(''),
     [source, setSource] = useState(''),
-    [status, setStatus] = useState<'' | 'saved' | 'done'>(''),
+    [status, setStatus] = useState(''),
     [searchMode, setSearchMode] = useState<'text' | 'semantic'>('text'),
     [searchEngine, setSearchEngine] = useState('text'),
     [sources, setSources] = useState<{ source: string; count: number }[]>([]);
+  const [statuses, setStatuses] = useState<BookmarkStatus[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [spaceSwitchNotice, setSpaceSwitchNotice] = useState('');
+  useEffect(() => {
+    if (!spaceSwitchNotice) {
+      return;
+    }
+    const timer = setTimeout(() => setSpaceSwitchNotice(''), 6000);
+    return () => clearTimeout(timer);
+  }, [spaceSwitchNotice, spaceId]);
   const loadSpaces = useCallback(async () => {
     setSpaces(await catalogueApi.spaces());
   }, []);
@@ -33,12 +52,41 @@ export function useCatalogue() {
     void loadSpaces().catch(e => setError(errorMessage(e)));
   }, [loadSpaces]);
   const activeSpace = spaces.find(s => s.id === spaceId) || spaces.find(s => s.personal);
-  const canEdit = activeSpace?.role !== 'viewer';
+  useSpaceTheme(activeSpace?.theme || 'sage');
+  const activeSpaceId = activeSpace?.id;
+  const previousSpaceId = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (activeSpaceId && previousSpaceId.current && previousSpaceId.current !== activeSpaceId) {
+      setSpaceSwitchNotice(COPY.space.switched(activeSpace.name));
+    }
+    previousSpaceId.current = activeSpaceId;
+  }, [activeSpaceId, activeSpace?.name]);
+  const canEdit = Boolean(activeSpace && activeSpace.role !== 'viewer');
   function changeSpace(id: string) {
+    const destination =
+      spaces.find(s => s.id === id) || (!id ? spaces.find(s => s.personal) : undefined);
+    if ((destination?.id || id) === activeSpaceId) {
+      return;
+    }
+    ++generation.current;
+    setItems([]);
+    setCollections([]);
+    setStatuses([]);
+    setSources([]);
+    setCursor(null);
+    setLoading(true);
+    setLoadingMore(false);
+    setError('');
+    setQuery('');
+    setType('');
     setSpaceId(id);
     setCollection('');
     setSource('');
     setTag('');
+    setStatus('');
+  }
+  function updateSpaceTheme(id: string, theme: SpaceTheme) {
+    setSpaces(rows => rows.map(space => (space.id === id ? { ...space, theme } : space)));
   }
   const generation = useRef(0);
   const filters = useMemo(
@@ -57,7 +105,7 @@ export function useCatalogue() {
   const refresh = useCallback(() => setRevision(v => v + 1), []);
   useEffect(() => {
     const controller = new AbortController();
-    ++generation.current;
+    const requestGeneration = ++generation.current;
     setLoading(true);
     setLoadingMore(false);
     setError('');
@@ -67,10 +115,15 @@ export function useCatalogue() {
         catalogueApi.collections(controller.signal, spaceId || undefined),
         catalogueApi.me(controller.signal),
         catalogueApi.sources(spaceId || undefined),
+        activeSpaceId ? statusesApi.list(activeSpaceId, controller.signal) : Promise.resolve([]),
       ])
-        .then(([data, folders, me, origins]) => {
-          if (controller.signal.aborted) {
+        .then(([data, folders, me, origins, states]) => {
+          if (controller.signal.aborted || requestGeneration !== generation.current) {
             return;
+          }
+          setStatuses(states);
+          if (states.length) {
+            setStatus(value => (states.some(row => row.key === value) ? value : ''));
           }
           setSearchEngine(data.searchEngine || 'text');
           setSources(origins);
@@ -81,12 +134,12 @@ export function useCatalogue() {
           setIsAdmin(me.isAdmin);
         })
         .catch(error => {
-          if (!controller.signal.aborted) {
+          if (!controller.signal.aborted && requestGeneration === generation.current) {
             setError(errorMessage(error));
           }
         })
         .finally(() => {
-          if (!controller.signal.aborted) {
+          if (!controller.signal.aborted && requestGeneration === generation.current) {
             setLoading(false);
           }
         });
@@ -95,7 +148,7 @@ export function useCatalogue() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [filters, revision, spaceId]);
+  }, [filters, revision, spaceId, activeSpaceId]);
   async function more() {
     if (!cursor || loadingMore || loading) {
       return;
@@ -127,9 +180,13 @@ export function useCatalogue() {
   }, [items, refresh]);
   return {
     isAdmin,
+    statuses,
     spaces,
     spaceId,
     changeSpace,
+    spaceSwitchNotice,
+    dismissSpaceSwitch: () => setSpaceSwitchNotice(''),
+    updateSpaceTheme,
     activeSpace,
     canEdit,
     loadSpaces,
@@ -161,3 +218,5 @@ export function useCatalogue() {
     more,
   };
 }
+
+export type Catalogue = ReturnType<typeof useCatalogue>;

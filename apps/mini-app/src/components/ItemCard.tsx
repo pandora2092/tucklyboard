@@ -1,6 +1,9 @@
+import './item-card.css';
+
 import type { Item } from '@tuckly/contracts';
 
 import { MediaPreview } from './MediaPreview';
+import { Button } from './ui/Button';
 
 export function ItemCard({
   item: i,
@@ -40,7 +43,7 @@ export function ItemCard({
             {[
               ...new Set([...i.tags, ...i.autoTags.filter(t => !i.dismissedAutoTags.includes(t))]),
             ].map(t => (
-              <button
+              <Button
                 key={t}
                 onClick={e => {
                   e.stopPropagation();
@@ -48,15 +51,22 @@ export function ItemCard({
                 }}
               >
                 #{t}
-              </button>
+              </Button>
             ))}
           </div>
         )}
-        <footer>
-          <span>
-            {i.collections.map(c => c.name).join(' · ') || 'Входящие'}
-            {i.status === 'done' ? ' · ✓' : ''}
+        {i.statusInfo && (
+          <span className={'status-label'}>
+            <span
+              className={'status-dot'}
+              style={{ backgroundColor: i.statusInfo.color }}
+              aria-hidden={'true'}
+            />
+            {i.statusInfo.name}
           </span>
+        )}
+        <footer>
+          <span>{i.collections.map(c => c.name).join(' · ') || 'Входящие'}</span>
           <span>
             {new Date(i.createdAt).toLocaleDateString('ru', {
               day: 'numeric',

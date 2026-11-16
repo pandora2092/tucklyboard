@@ -7,6 +7,7 @@ import { isAdmin } from '../auth/admin-access';
 import { canonicalUrl } from '../common/normalize-url';
 import { linkFromText, source } from '../common/urls';
 import { Store } from '../database/database.service';
+import { resolveStatus } from '../database/statuses';
 
 import { extractMedia } from './telegram-media.service';
 
@@ -25,6 +26,7 @@ export async function saveIncoming(db: Store, message: Message, from: User) {
   const spaceId = await db.ensurePersonalSpace(user.id);
   const normalized = url ? canonicalUrl(url) : undefined;
   return db.$transaction(async tx => {
+    const status = await resolveStatus(tx, spaceId);
     if (normalized) {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${spaceId + '|' + normalized},0))`;
       const candidates = await tx.item.findMany({
@@ -52,6 +54,7 @@ export async function saveIncoming(db: Store, message: Message, from: User) {
       create: {
         userId: user.id,
         spaceId,
+        status,
         type: media?.type || (url ? 'link' : 'text'),
         title: url
           ? source(url) || url

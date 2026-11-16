@@ -1,0 +1,58 @@
+.bulk-tools {
+  padding: 14px;
+  margin-bottom: var(--spacing-4);
+  background: var(--space-soft);
+  border-radius: var(--radius-panel);
+}
+
+.bulk-selection,
+.bulk-selection label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+  align-items: center;
+  font-size: 12px;
+}
+
+.bulk-selection {
+  gap: var(--spacing-3);
+}
+
+.bulk-selection strong {
+  font-weight: 600;
+  color: var(--space-accent);
+}
+
+.bulk-clear {
+  padding: var(--spacing-1) 0;
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--space-accent);
+  text-decoration: underline;
+}
+
+.bulk-action-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-3);
+  align-items: end;
+  margin-top: 14px;
+}
+
+.bulk-action-form .filter-field {
+  flex: 1 1 180px;
+}
+
+.bulk-apply {
+  min-height: var(--control-height);
+  padding: 10px 14px;
+  font-size: 12px;
+}
+
+.bulk-hint {
+  flex-basis: 100%;
+  margin: 10px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--space-muted);
+}

@@ -1,0 +1,67 @@
+.item-actions {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.item-actions .item-actions-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--space-accent);
+  background: var(--space-surface);
+  border: 1px solid var(--space-border);
+  border-radius: 7px;
+}
+
+.item-actions-popover {
+  position: fixed;
+  z-index: 10000;
+  width: min(240px, calc(100vw - 16px));
+  padding: 5px;
+  background: var(--space-surface);
+  border: 1px solid var(--space-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px #30392f26;
+}
+
+.item-actions-popover button {
+  width: 100%;
+  min-height: 40px;
+  padding: var(--spacing-2) 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--space-accent);
+  text-align: left;
+  border-radius: var(--radius-sm);
+}
+
+.item-actions-popover button:hover {
+  background: var(--space-soft);
+}
+
+.card-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+}
+
+.dialog-header-actions {
+  display: flex;
+  gap: var(--spacing-3);
+  align-items: center;
+}
+
+.dialog .copy-dialog-description {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--space-muted);
+}
+
+.copy-dialog-actions {
+  flex-wrap: wrap;
+  margin-top: var(--spacing-5);
+}

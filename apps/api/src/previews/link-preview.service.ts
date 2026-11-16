@@ -3,11 +3,13 @@ import { load } from 'cheerio/slim';
 
 import { imageMime } from '../telegram/telegram-media.service';
 
+import { embedEndpoints, readEmbed } from './oembed';
+import { PAGE_LIMIT, tiktokMetadata } from './page-data';
 import { PublicHttp, publicUrl } from './public-http';
 
 export type LinkImage = { bytes: Buffer; mime: string };
 type Cached = { value: LinkImage | null; expires: number };
-const IMAGE_LIMIT = 2 * 1024 * 1024;
+const IMAGE_LIMIT = 6 * 1024 * 1024;
 const CACHE_LIMIT = 32 * 1024 * 1024;
 
 export function youtubeId(value: string) {
@@ -71,6 +73,55 @@ export function imageCandidates(html: string, pageUrl: string) {
       .toArray()
       .map(element => $(element).attr('href') || ''),
   ];
+  // Read only declared Schema.org images; never execute page scripts or embeds.
+  let visited = 0;
+  const structuredImages: string[] = [];
+  const visit = (value: unknown, depth = 0) => {
+    if (++visited > 2000 || depth > 12 || !value || typeof value !== 'object') {
+      return;
+    }
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        visit(entry, depth + 1);
+      }
+      return;
+    }
+    const data = value as Record<string, unknown>;
+    const types = Array.isArray(data['@type']) ? data['@type'] : [data['@type']];
+    if (types.some(type => ['Person', 'Organization', 'WebSite'].includes(String(type)))) {
+      return;
+    }
+    const add = (image: unknown, level = 0) => {
+      if (level > 4) {
+        return;
+      }
+      if (typeof image === 'string') {
+        structuredImages.push(image);
+      } else if (Array.isArray(image)) {
+        image.slice(0, 4).forEach(entry => add(entry, level + 1));
+      } else if (image && typeof image === 'object') {
+        const object = image as Record<string, unknown>;
+        if (typeof object.contentUrl === 'string') {
+          structuredImages.push(object.contentUrl);
+        } else if (typeof object.url === 'string') {
+          structuredImages.push(object.url);
+        }
+      }
+    };
+    add(data.image);
+    add(data.thumbnailUrl);
+    for (const child of Object.values(data)) {
+      visit(child, depth + 1);
+    }
+  };
+  $('script[type="application/ld+json"]').each((_index, element) => {
+    try {
+      visit(JSON.parse($(element).text()));
+    } catch {
+      /* Ignore malformed JSON-LD. */
+    }
+  });
+  raw.push(...structuredImages, ...(tiktokMetadata(html, pageUrl)?.images || []));
   for (const value of raw) {
     try {
       const url = publicUrl(new URL(value, baseUrl).href).href;
@@ -176,10 +227,9 @@ export class LinkPreview {
           return image;
         }
       }
-      return null;
     }
     const page = await this.http.get(url, {
-      maxBytes: 1024 * 1024,
+      maxBytes: PAGE_LIMIT,
       accept: 'text/html,application/xhtml+xml,image/*',
       signal,
     });
@@ -190,10 +240,29 @@ export class LinkPreview {
     if (!/^(text\/html|application\/xhtml\+xml)\b/i.test(page.contentType)) {
       return null;
     }
-    for (const candidate of imageCandidates(page.bytes.toString('utf8'), page.url)) {
+    const html = page.bytes.toString('utf8');
+    for (const candidate of imageCandidates(html, page.url)) {
       const image = await this.readImage(candidate, signal);
       if (image) {
         return image;
+      }
+    }
+    for (const endpoint of embedEndpoints(html, page.url)) {
+      const data = await readEmbed(this.http, endpoint, signal);
+      const candidate = data?.thumbnail_url || (data?.type === 'photo' ? data.url : undefined);
+      if (!candidate) {
+        continue;
+      }
+      try {
+        const image = await this.readImage(
+          publicUrl(new URL(candidate, page.url).href).href,
+          signal,
+        );
+        if (image) {
+          return image;
+        }
+      } catch {
+        /* Try the next provider if its image URL is invalid. */
       }
     }
     return null;

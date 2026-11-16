@@ -58,6 +58,26 @@ export function previewFileId(item: Item) {
 @Injectable()
 export class TelegramMedia {
   private client?: Api;
+  private username?: Promise<string>;
+  async botUsername(): Promise<string | null> {
+    const configured = process.env.BOT_USERNAME?.trim().replace(/^@/, '');
+    if (configured && /^[a-zA-Z0-9_]{5,32}$/.test(configured)) {
+      return configured;
+    }
+    if (!this.configured) {
+      return null;
+    }
+    this.username ??= this.api()
+      .getMe()
+      .then(bot => bot.username)
+      .catch(() => {
+        this.username = undefined;
+        throw new BadGatewayException(
+          'Не удалось получить адрес бота. Попробуйте создать приглашение ещё раз',
+        );
+      });
+    return this.username;
+  }
   get configured() {
     return Boolean(process.env.BOT_TOKEN);
   }

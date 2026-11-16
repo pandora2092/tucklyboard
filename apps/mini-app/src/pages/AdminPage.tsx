@@ -10,6 +10,7 @@ import {
 
 import { adminApi } from '../api/admin';
 import { ApiError, errorMessage } from '../api/client';
+import { Select } from '../components/Select';
 
 import '../admin.css';
 
@@ -82,7 +83,7 @@ function UserDetail({
       >
         <div className={'dialog-top'}>
           <h2 id={'user-title'}>{data?.user.name || 'Пользователь'}</h2>
-          <button ref={close} onClick={onClose} aria-label={'Закрыть'}>
+          <button ref={close} onClick={onClose} aria-label={COPY.actions.close}>
             ×
           </button>
         </div>
@@ -314,7 +315,7 @@ export function AdminPage() {
                 <button className={'primary'} type={'submit'}>
                   Найти
                 </button>
-                <select
+                <Select
                   aria-label={'Период активности'}
                   value={activeDays}
                   onChange={e => {
@@ -326,7 +327,7 @@ export function AdminPage() {
                   <option value={'1'}>Активны сегодня</option>
                   <option value={'7'}>Активны за 7 дней</option>
                   <option value={'30'}>Активны за 30 дней</option>
-                </select>
+                </Select>
               </form>
               {users && (
                 <>

@@ -1,0 +1,161 @@
+.storage-note,
+.telegram-info p {
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--space-muted);
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-5);
+  background: #20212866;
+  backdrop-filter: blur(4px);
+}
+
+.dialog {
+  width: 480px;
+  max-height: 90dvh;
+  padding: 25px;
+  overflow: auto;
+  background: var(--space-background);
+  border-radius: var(--radius-dialog);
+}
+
+.dialog-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+
+.dialog h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.dialog-top button {
+  font-size: 27px;
+}
+
+.dialog label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 14px 0;
+  font-size: 11px;
+  color: var(--space-muted);
+}
+
+.dialog input,
+.dialog textarea,
+.dialog .select-trigger {
+  width: 100%;
+  padding: 11px;
+  font-size: 13px;
+  color: var(--space-text);
+  background: var(--space-surface);
+  border: 1px solid var(--space-border);
+  border-radius: 7px;
+}
+
+.dialog .upload {
+  padding: 14px;
+  cursor: pointer;
+  border: 1px dashed var(--space-border);
+  border-radius: 8px;
+}
+
+.upload input {
+  font-size: 10px;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: flex-end;
+  margin-top: var(--spacing-5);
+}
+
+@media (width <= 700px) {
+  .dialog {
+    padding: var(--spacing-5);
+  }
+
+  .overlay {
+    padding: 10px;
+  }
+}
+
+.telegram-info {
+  padding: 14px;
+  margin: var(--spacing-3) 0;
+  background: var(--space-soft);
+  border-radius: 10px;
+}
+
+.success {
+  padding: var(--spacing-3);
+  font-size: 12px;
+  color: var(--space-accent);
+  background: var(--space-soft);
+  border-radius: 8px;
+}
+
+fieldset {
+  padding: var(--spacing-3);
+  margin: var(--spacing-4) 0;
+  border: 1px solid var(--space-border);
+  border-radius: var(--radius-panel);
+}
+
+.collection-picker {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+.collection-picker legend {
+  padding: 0;
+  margin-bottom: 7px;
+  font-size: 11px;
+  color: var(--space-muted);
+}
+
+.dialog .collection-option {
+  flex-direction: row;
+  gap: 10px;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px var(--spacing-3);
+  margin: 6px 0;
+  font-size: 13px;
+  color: var(--space-accent);
+  cursor: pointer;
+  background: var(--space-surface);
+  border: 1px solid var(--space-border);
+  border-radius: var(--radius-control);
+}
+
+.collection-option:hover {
+  border-color: var(--space-border);
+}
+
+.collection-option:has(input:checked) {
+  background: var(--space-soft);
+  border-color: var(--space-border);
+}
+
+.collection-option-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.collection-picker:disabled .collection-option {
+  cursor: default;
+  opacity: 0.7;
+}

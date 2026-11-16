@@ -1,6 +1,13 @@
 import { z } from 'zod';
 
+import { SpaceThemeSchema } from './space-themes.js';
+import { StatusKeySchema, StatusSchema } from './statuses.js';
+
+export * from './statuses.js';
+export * from './space-themes.js';
+
 export { BRAND, COPY } from './brand.js';
+export { createWebInviteUrl } from './invites.js';
 
 export const UPLOAD_LIMIT = 20 * 1024 * 1024;
 export const MEDIA_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm'];
@@ -13,7 +20,7 @@ export const SmartRulesSchema = z
     type: ItemTypeSchema.optional(),
     source: z.string().max(200).optional(),
     tags: z.array(z.string().min(1).max(40)).max(20).optional(),
-    status: z.enum(['saved', 'done']).optional(),
+    status: StatusKeySchema.optional(),
     addedBy: id.optional(),
     days: z.number().int().min(1).max(365).optional(),
   })
@@ -30,6 +37,7 @@ export const ItemDetailsSchema = z
     collectionId,
     collectionIds: z.array(id).max(30).optional(),
     spaceId: id.optional(),
+    status: StatusKeySchema.optional(),
   })
   .strict();
 export const CreateItemSchema = ItemDetailsSchema.extend({
@@ -61,7 +69,7 @@ export const UpdateItemSchema = z
     collectionId,
     collectionIds: z.array(id).max(30).optional(),
     dismissedAutoTags: z.array(z.string().max(40)).max(30).optional(),
-    status: z.enum(['saved', 'done']).optional(),
+    status: StatusKeySchema.optional(),
   })
   .strict();
 export const CreateCollectionSchema = z
@@ -80,7 +88,7 @@ export const ItemQuerySchema = z
     cursor: z.string().min(1).optional(),
     spaceId: id.optional(),
     source: z.string().max(200).optional(),
-    status: z.enum(['saved', 'done']).optional(),
+    status: StatusKeySchema.optional(),
     searchMode: z.enum(['text', 'semantic']).optional(),
   })
   .strict();
@@ -102,7 +110,8 @@ export const ItemSchema = z.object({
   metadataStatus: z.enum(['pending', 'processing', 'ready', 'unavailable']).optional(),
   autoTags: z.array(z.string()).default([]),
   dismissedAutoTags: z.array(z.string()).default([]),
-  status: z.enum(['saved', 'done']).default('saved'),
+  status: StatusKeySchema.default('saved'),
+  statusInfo: StatusSchema.nullable().optional(),
   spaceId: z.string().nullable().optional(),
   collections: z.array(z.object({ id: z.string(), name: z.string() })).default([]),
   addedBy: z.object({ id: z.string(), name: z.string() }).optional(),
@@ -147,6 +156,7 @@ export type Me = z.infer<typeof MeSchema>;
 export const SpaceSchema = z.object({
   id: z.string(),
   name: z.string(),
+  theme: SpaceThemeSchema.default('sage'),
   personal: z.boolean(),
   role: SpaceRoleSchema,
   memberCount: z.number().int(),
@@ -192,9 +202,11 @@ export const BulkSchema = z
       'addTags',
       'markDone',
       'markSaved',
+      'setStatus',
       'delete',
     ]),
     collectionIds: z.array(id).max(30).optional(),
+    status: StatusKeySchema.optional(),
     tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
   })
   .strict();

@@ -22,6 +22,7 @@ import {
 import { canonicalUrl } from '../common/normalize-url';
 import { source } from '../common/urls';
 import { Store } from '../database/database.service';
+import { resolveStatus } from '../database/statuses';
 import { EmbeddingsService } from '../intelligence/embeddings.service';
 import { EnrichmentService } from '../intelligence/enrichment.service';
 import { autoTags, cosine, documentText, topicScore } from '../intelligence/topics';
@@ -35,6 +36,7 @@ const include = {
   collections: { include: { collection: true } },
   user: { select: { id: true, name: true } },
   collection: true,
+  statusDefinition: true,
 } satisfies Prisma.ItemInclude;
 type FullItem = Prisma.ItemGetPayload<{ include: typeof include }>;
 function tagWhere(tag: string): Prisma.ItemWhereInput {
@@ -82,6 +84,7 @@ export class CatalogueService {
     const isTelegram = Boolean(item.telegramFileId);
     return ItemSchema.parse({
       ...item,
+      statusInfo: item.statusDefinition,
       createdAt: item.createdAt.toISOString(),
       collections: item.collections.map(entry => ({
         id: entry.collection.id,
@@ -159,15 +162,20 @@ export class CatalogueService {
   }
   async createCollection(user: User, name: string, spaceId?: string, rules?: SmartRules) {
     const access = await this.spaces.access(user, spaceId, true);
-    const row = await this.db.collection.upsert({
-      where: { spaceId_name: { spaceId: access.id, name } },
-      update: {},
-      create: {
-        name,
-        userId: user.id,
-        spaceId: access.id,
-        ...(rules ? { rules: rules as Prisma.InputJsonValue } : {}),
-      },
+    const row = await this.db.$transaction(async tx => {
+      if (rules?.status) {
+        await resolveStatus(tx, access.id, rules.status);
+      }
+      return tx.collection.upsert({
+        where: { spaceId_name: { spaceId: access.id, name } },
+        update: {},
+        create: {
+          name,
+          userId: user.id,
+          spaceId: access.id,
+          ...(rules ? { rules: rules as Prisma.InputJsonValue } : {}),
+        },
+      });
     });
     return {
       id: row.id,
@@ -291,6 +299,7 @@ export class CatalogueService {
       throw new BadRequestException('Неверная ссылка');
     }
     const result = await this.db.$transaction(async tx => {
+      const status = await resolveStatus(tx, access.id, data.status);
       if (normalized) {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${access.id + '|' + normalized},0))`;
         const candidates = await tx.item.findMany({
@@ -338,6 +347,7 @@ export class CatalogueService {
         data: {
           userId: user.id,
           spaceId: access.id,
+          status,
           type: data.type,
           title,
           titleMode: custom ? 'custom' : 'auto',
@@ -361,6 +371,8 @@ export class CatalogueService {
     if (!file?.buffer.length || !validMedia(file.buffer, file.mimetype)) {
       throw new BadRequestException('Выберите корректное фото или видео');
     }
+    // Reject an invalid status before sending the user's file to Telegram.
+    await this.db.$transaction(tx => resolveStatus(tx, access.id, data.status));
     const extensions: Record<string, string> = {
       'image/jpeg': 'jpg',
       'image/png': 'png',
@@ -376,19 +388,23 @@ export class CatalogueService {
       file.mimetype,
     );
     try {
-      const item = await this.db.item.create({
-        data: {
-          userId: user.id,
-          spaceId: access.id,
-          title: data.title,
-          text: data.text,
-          tags: data.tags,
-          ...sent.media,
-          source: 'Telegram',
-          telegramMessageId: sent.messageId,
-          collections: { create: ids.map(collectionId => ({ collectionId })) },
-        },
-        include,
+      const item = await this.db.$transaction(async tx => {
+        const status = await resolveStatus(tx, access.id, data.status);
+        return tx.item.create({
+          data: {
+            userId: user.id,
+            spaceId: access.id,
+            status,
+            title: data.title,
+            text: data.text,
+            tags: data.tags,
+            ...sent.media,
+            source: 'Telegram',
+            telegramMessageId: sent.messageId,
+            collections: { create: ids.map(collectionId => ({ collectionId })) },
+          },
+          include,
+        });
       });
       return this.view(item);
     } catch {
@@ -420,6 +436,9 @@ export class CatalogueService {
         : undefined;
     const { collectionId: _legacy, collectionIds: _collections, ...values } = data;
     await this.db.$transaction(async tx => {
+      if (data.status !== undefined) {
+        await resolveStatus(tx, item.spaceId!, data.status);
+      }
       await tx.item.update({
         where: { id },
         data: {
@@ -468,10 +487,22 @@ export class CatalogueService {
       if (data.action === 'delete') {
         await tx.item.deleteMany({ where: { id: { in: ids }, spaceId: access.id } });
       }
-      if (data.action === 'markDone' || data.action === 'markSaved') {
+      if (
+        data.action === 'markDone' ||
+        data.action === 'markSaved' ||
+        data.action === 'setStatus'
+      ) {
+        if (data.action === 'setStatus' && !data.status) {
+          throw new BadRequestException('Выберите статус');
+        }
+        const status = await resolveStatus(
+          tx,
+          access.id,
+          data.action === 'setStatus' ? data.status : data.action === 'markDone' ? 'done' : 'saved',
+        );
         await tx.item.updateMany({
           where: { id: { in: ids }, spaceId: access.id },
-          data: { status: data.action === 'markDone' ? 'done' : 'saved' },
+          data: { status },
         });
       }
       if (data.action === 'addCollections') {
@@ -506,6 +537,7 @@ export class CatalogueService {
     const folders = await this.collectionIds(access.id, ids);
     const normalized = item.url ? canonicalUrl(item.url) : null;
     const result = await this.db.$transaction(async tx => {
+      const status = await resolveStatus(tx, access.id);
       if (normalized) {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${access.id + '|' + normalized},0))`;
         const rows = await tx.item.findMany({
@@ -538,6 +570,7 @@ export class CatalogueService {
         data: {
           userId: user.id,
           spaceId: access.id,
+          status,
           type: item.type,
           title: item.title,
           titleMode: item.titleMode,

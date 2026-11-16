@@ -126,3 +126,147 @@ void test('bounds concurrent outbound preview jobs', async () => {
   );
   assert.equal(peak, 4);
 });
+
+void test('discovers oEmbed on any site and resolves relative endpoints after redirects', async () => {
+  const http = new FixtureHttp(url => {
+    if (url === 'https://short.example/abc') {
+      return {
+        url: 'https://publisher.example/posts/123',
+        contentType: 'text/html',
+        bytes: Buffer.from(
+          '<link rel="alternate" type="application/json+oembed" href="/embed?id=123">',
+        ),
+      };
+    }
+    if (url === 'https://publisher.example/embed?id=123') {
+      return {
+        url,
+        contentType: 'application/json',
+        bytes: Buffer.from(
+          JSON.stringify({
+            thumbnail_url: 'https://cdn.example/cover.png',
+            html: '<script>untrusted</script>',
+          }),
+        ),
+      };
+    }
+    assert.equal(url, 'https://cdn.example/cover.png');
+    return image(url);
+  });
+  assert.deepEqual((await new LinkPreview(http).image('https://short.example/abc')).bytes, png);
+  assert.equal(http.requests.length, 3);
+});
+
+void test('TikTok short links use the final video URL for oEmbed', async () => {
+  const target = 'https://www.tiktok.com/@author/video/123';
+  const http = new FixtureHttp(url => {
+    if (url === 'https://vt.tiktok.com/abc/') {
+      return {
+        url: target,
+        contentType: 'text/html',
+        bytes: Buffer.from('<title>TikTok</title>'),
+      };
+    }
+    if (url.startsWith('https://www.tiktok.com/oembed?')) {
+      assert.equal(new URL(url).searchParams.get('url'), target);
+      return {
+        url,
+        contentType: 'application/json',
+        bytes: Buffer.from('{"thumbnail_url":"https://cdn.example/tiktok.png"}'),
+      };
+    }
+    assert.equal(url, 'https://cdn.example/tiktok.png');
+    return image(url);
+  });
+  assert.deepEqual((await new LinkPreview(http).image('https://vt.tiktok.com/abc/')).bytes, png);
+});
+
+void test('extracts structured article and video covers without using arbitrary page images', () => {
+  assert.deepEqual(
+    imageCandidates(
+      `<img src="/advert.png"><script type="application/ld+json">{"@graph":[{"@type":"Article","image":{"url":"/article.jpg"}},{"@type":"VideoObject","thumbnailUrl":["/video.jpg"]}]}</script>`,
+      'https://site.example/post',
+    ),
+    ['https://site.example/article.jpg', 'https://site.example/video.jpg'],
+  );
+  assert.deepEqual(
+    imageCandidates('<script type="application/ld+json">broken</script>', 'https://site.example/'),
+    [],
+  );
+});
+
+void test('invalid oEmbed responses are ignored and another discovered provider can supply a photo', async () => {
+  const http = new FixtureHttp(url => {
+    if (url === 'https://site.example/') {
+      return {
+        url,
+        contentType: 'text/html',
+        bytes: Buffer.from(
+          '<link rel="alternate" type="application/json+oembed" href="/broken"><link rel="alternate" type="application/json+oembed" href="/good">',
+        ),
+      };
+    }
+    if (url.endsWith('/broken')) {
+      return { url, contentType: 'application/json', bytes: Buffer.from('invalid') };
+    }
+    if (url.endsWith('/good')) {
+      return {
+        url,
+        contentType: 'application/json',
+        bytes: Buffer.from('{"type":"photo","url":"/photo.png"}'),
+      };
+    }
+    assert.equal(url, 'https://site.example/photo.png');
+    return image(url);
+  });
+  assert.deepEqual((await new LinkPreview(http).image('https://site.example/')).bytes, png);
+});
+
+void test('loads article pages and covers larger than the former limits', async () => {
+  const cover = Buffer.concat([png, Buffer.alloc(3 * 1024 * 1024)]);
+  const html = Buffer.from('<meta property="og:image" content="/cover.png">' + ' '.repeat(2400000));
+  const http = new FixtureHttp((url, options) => {
+    const bytes = url.endsWith('/cover.png') ? cover : html;
+    assert.ok(options.maxBytes >= bytes.length);
+    return { url, bytes, contentType: url.endsWith('.png') ? 'image/png' : 'text/html' };
+  });
+  assert.deepEqual(
+    (await new LinkPreview(http).image('https://site.example/article')).bytes,
+    cover,
+  );
+});
+
+void test('reads only the requested TikTok video cover from hydration data', async () => {
+  const item = {
+    id: '123',
+    video: {
+      originCover: 'https://cdn.example/video.jpg',
+      cover: 'https://cdn.example/second.jpg',
+    },
+  };
+  const html = `<script type="application/json" id="__UNIVERSAL_DATA_FOR_REHYDRATION__">${JSON.stringify({ __DEFAULT_SCOPE__: { 'webapp.video-detail': { itemInfo: { itemStruct: item } } } })}</script>`;
+  assert.deepEqual(imageCandidates(html, 'https://www.tiktok.com/@author/video/123'), [
+    'https://cdn.example/video.jpg',
+    'https://cdn.example/second.jpg',
+  ]);
+  assert.deepEqual(imageCandidates(html, 'https://www.tiktok.com/@author/video/999'), []);
+  assert.deepEqual(imageCandidates(html, 'https://other.example/video/123'), []);
+  const http = new FixtureHttp(url =>
+    url === 'https://vt.tiktok.com/abc/'
+      ? {
+          url: 'https://www.tiktok.com/@author/video/123',
+          contentType: 'text/html',
+          bytes: Buffer.from(html),
+        }
+      : image(url),
+  );
+  await new LinkPreview(http).image('https://vt.tiktok.com/abc/');
+  assert.deepEqual(http.requests, ['https://vt.tiktok.com/abc/', 'https://cdn.example/video.jpg']);
+});
+
+void test('does not substitute author avatars or publisher logos for article covers', () => {
+  const html = `<script type="application/ld+json">{"@graph":[{"@type":"Person","image":{"url":"/avatar.jpg"}},{"@type":"Organization","image":"/logo.png"},{"@type":"Article","thumbnailUrl":"/article.jpg"}]}</script>`;
+  assert.deepEqual(imageCandidates(html, 'https://site.example/'), [
+    'https://site.example/article.jpg',
+  ]);
+});

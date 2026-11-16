@@ -1,0 +1,84 @@
+.library-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--spacing-3) var(--spacing-4);
+  height: auto;
+  padding: var(--spacing-5) 0 var(--spacing-4);
+}
+
+.space-picker {
+  min-width: 0;
+}
+
+.space-picker .select-trigger {
+  width: 100%;
+  max-width: 320px;
+  min-height: 44px;
+  padding: 10px var(--spacing-3);
+  font-size: 13px;
+  color: var(--space-text);
+  background: var(--space-surface);
+  border: 1px solid var(--space-border);
+  border-radius: 10px;
+}
+
+.library-header > .primary {
+  min-height: 44px;
+}
+
+.space-actions {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  padding-top: var(--spacing-3);
+  border-top: 1px solid var(--space-border);
+}
+
+.space-actions > button,
+.space-actions > a {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 7px;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: var(--spacing-2) 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--space-muted);
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+}
+
+.space-actions > button:hover,
+.space-actions > a:hover {
+  color: var(--space-accent);
+  background: var(--space-soft);
+}
+
+.space-actions .space-settings-button {
+  font-weight: 600;
+  color: var(--space-accent);
+  background: var(--space-soft);
+  border-color: var(--space-border);
+}
+
+.space-actions .space-settings-button:hover {
+  background: var(--space-soft);
+  border-color: var(--space-border);
+}
+
+.space-actions .space-members-button {
+  width: 40px;
+  padding: var(--spacing-2);
+}
+
+@media (width <= 700px) {
+  .library-header {
+    padding: var(--spacing-3) 0;
+  }
+}

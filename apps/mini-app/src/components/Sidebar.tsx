@@ -1,4 +1,8 @@
+import './sidebar.css';
+
 import { BRAND, type Collection } from '@tuckly/contracts';
+
+import { Button } from './ui/Button';
 
 export function Sidebar({
   collections,
@@ -16,7 +20,7 @@ export function Sidebar({
   addCollection: () => void;
 }) {
   return (
-    <aside>
+    <aside className={'library-sidebar'}>
       <a className={'brand'} href={'#'}>
         {BRAND.name}
         <span>✳</span>
@@ -29,23 +33,23 @@ export function Sidebar({
         </div>
       </div>
       <p className={'eyebrow'}>БИБЛИОТЕКА</p>
-      <button className={!collection ? 'nav active' : 'nav'} onClick={() => setCollection('')}>
+      <Button className={!collection ? 'nav active' : 'nav'} onClick={() => setCollection('')}>
         <span>▦</span>Все сохранённое
-      </button>
-      <button
+      </Button>
+      <Button
         className={collection === 'inbox' ? 'nav active' : 'nav'}
         onClick={() => setCollection('inbox')}
       >
         <span>⌑</span>Входящие
-      </button>
+      </Button>
       <div className={'section-label'}>
         <p className={'eyebrow'}>КОЛЛЕКЦИИ</p>
-        <button disabled={!canEdit} aria-label={'Создать коллекцию'} onClick={addCollection}>
+        <Button disabled={!canEdit} aria-label={'Создать коллекцию'} onClick={addCollection}>
           +
-        </button>
+        </Button>
       </div>
       {collections.map(c => (
-        <button
+        <Button
           key={c.id}
           className={collection === c.id ? 'nav active' : 'nav'}
           onClick={() => setCollection(c.id)}
@@ -54,7 +58,7 @@ export function Sidebar({
           {c.rules ? '✧ ' : ''}
           {c.name}
           <small>{c._count.items}</small>
-        </button>
+        </Button>
       ))}
       {!collections.length && <p className={'hint'}>Соберите идеи в свою первую коллекцию.</p>}
       <div className={'aside-bottom'}>

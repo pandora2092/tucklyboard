@@ -64,7 +64,9 @@ const telegram = createServer(async (req, res) => {
       return;
     }
     let result;
-    if (method === 'getFile') {
+    if (method === 'getMe') {
+      result = { id: 999, is_bot: true, first_name: 'Test bot', username: 'tuckly_test_bot' };
+    } else if (method === 'getFile') {
       result = {
         file_id: payload.file_id,
         file_unique_id: 'thumbnail-unique',
@@ -136,6 +138,7 @@ const server = spawn(process.execPath, ['dist/main.js'], {
     ...process.env,
     ENRICHMENT_ENABLED: 'false',
     BOT_TOKEN: token,
+    BOT_USERNAME: '',
     BOT_POLLING: 'false',
     ADMIN_TELEGRAM_IDS: String(id),
     DEV_AUTH: 'false',
@@ -456,9 +459,30 @@ try {
   assert.equal(new Set(concurrent.map(i => i.id)).size, 1);
   // Shared spaces require membership; readers cannot mutate, editors can.
   const shared = await (await request('spaces', 'POST', { name: 'Shared integration' })).json();
+  assert.equal(shared.theme, 'sage');
+  assert.equal(
+    (await request(`spaces/${shared.id}`, 'PATCH', { theme: 'ocean' }, null)).status,
+    401,
+  );
+  assert.equal(
+    (await request(`spaces/${shared.id}`, 'PATCH', { theme: 'ocean' }, id + 1)).status,
+    404,
+  );
+  assert.equal((await request(`spaces/${shared.id}`, 'PATCH', { theme: 'unknown' })).status, 400);
+  assert.equal(
+    (await request(`spaces/${shared.id}`, 'PATCH', { theme: 'ocean', ownerId: 'other' })).status,
+    400,
+  );
+  assert.equal((await request(`spaces/${shared.id}`, 'PATCH', { theme: 'ocean' })).status, 200);
+  assert.equal((await db.space.findUniqueOrThrow({ where: { id: shared.id } })).theme, 'ocean');
+  assert.equal(
+    (await (await request('spaces')).json()).find(space => space.id === shared.id).theme,
+    'ocean',
+  );
   const invite = await (
     await request(`spaces/${shared.id}/invites`, 'POST', { role: 'viewer', days: 7 })
   ).json();
+  assert.equal(invite.telegramUrl, `https://t.me/tuckly_test_bot?start=join_${invite.token}`);
   assert.equal((await request(`items?spaceId=${shared.id}`, 'GET', undefined, id + 1)).status, 404);
   assert.equal(
     (await request(`invites/${invite.token}/join`, 'POST', undefined, id + 1)).status,
@@ -469,6 +493,16 @@ try {
     201,
   );
   assert.equal((await (await request(`spaces/${shared.id}/invites`)).json())[0].uses, 1);
+  assert.equal(
+    (await request(`spaces/${shared.id}`, 'PATCH', { theme: 'rose' }, id + 1)).status,
+    403,
+  );
+  assert.equal(
+    (await (await request('spaces', 'GET', undefined, id + 1)).json()).find(
+      space => space.id === shared.id,
+    ).theme,
+    'ocean',
+  );
   const copied = await (
     await request(`items/${canonical.id}/copy`, 'POST', { spaceId: shared.id })
   ).json();
@@ -499,6 +533,10 @@ try {
   assert.equal(
     (await request(`spaces/${shared.id}/members/${reader.id}`, 'PATCH', { role: 'editor' })).status,
     200,
+  );
+  assert.equal(
+    (await request(`spaces/${shared.id}`, 'PATCH', { theme: 'rose' }, id + 1)).status,
+    403,
   );
   assert.equal(
     (await request(`items/${copied.id}`, 'PATCH', { title: 'Shared edit' }, id + 1)).status,
@@ -546,11 +584,40 @@ try {
   assert.equal((await request(`spaces/${shared.id}/members/${me.id}`, 'DELETE')).status, 400);
   assert.equal((await request(`spaces/${shared.id}/members/${reader.id}`, 'DELETE')).status, 200);
   assert.equal((await request(`items/${copied.id}/preview`, 'GET', undefined, id + 1)).status, 404);
-  assert.equal((await request(`spaces/${shared.id}/invites/${invite.id}`, 'DELETE')).status, 200);
+  assert.equal(
+    (await request(`spaces/${shared.id}/invites/${invite.id}/revoke`, 'POST')).status,
+    201,
+  );
+  assert.equal((await (await request(`spaces/${shared.id}/invites`)).json())[0].revoked, true);
   assert.equal(
     (await request(`invites/${invite.token}/join`, 'POST', undefined, id + 1)).status,
     404,
   );
+  assert.equal((await request(`spaces/${shared.id}/invites/${invite.id}`, 'DELETE')).status, 200);
+  assert.equal((await (await request(`spaces/${shared.id}/invites`)).json()).length, 0);
+  const toDelete = await (
+    await request(`spaces/${shared.id}/invites`, 'POST', { role: 'viewer', days: 7 })
+  ).json();
+  await request(`invites/${toDelete.token}/join`, 'POST', undefined, id + 1);
+  assert.equal(
+    (await request(`spaces/${shared.id}/invites/${toDelete.id}`, 'DELETE', undefined, id + 1))
+      .status,
+    403,
+  );
+  const otherSpace = await (await request('spaces', 'POST', { name: 'Invite isolation' })).json();
+  assert.equal(
+    (await request(`spaces/${otherSpace.id}/invites/${toDelete.id}`, 'DELETE')).status,
+    200,
+  );
+  assert.equal((await request(`invites/${toDelete.token}`)).status, 200);
+  assert.equal((await request(`spaces/${shared.id}/invites/${toDelete.id}`, 'DELETE')).status, 200);
+  assert.equal((await request(`invites/${toDelete.token}`)).status, 404);
+  assert.equal(
+    (await request(`invites/${toDelete.token}/join`, 'POST', undefined, id + 1)).status,
+    404,
+  );
+  assert.equal((await (await request(`spaces/${shared.id}/invites`)).json()).length, 0);
+  assert.equal((await request(`items?spaceId=${shared.id}`, 'GET', undefined, id + 1)).status, 200);
   const expired = await (
     await request(`spaces/${shared.id}/invites`, 'POST', { role: 'editor', days: 1 })
   ).json();
@@ -758,8 +825,200 @@ try {
   });
   assert.equal((await request(`items/${legacy.id}/send`, 'POST')).status, 400);
   assert.equal((await request(`items/${legacy.id}`, 'DELETE')).status, 200);
+  // Custom statuses are scoped to spaces; only owners can manage definitions.
+  const personal = (await (await request('spaces')).json()).find(space => space.personal);
+  const statusPath = `spaces/${personal.id}/statuses`;
+  const initialStatuses = await (await request(statusPath)).json();
+  assert.deepEqual(
+    initialStatuses.map(row => row.key),
+    ['saved', 'done'],
+  );
+  assert.equal(initialStatuses.filter(row => row.isDefault).length, 1);
+  assert.equal((await request(statusPath, 'GET', undefined, id + 1)).status, 404);
+  assert.equal((await request(statusPath, 'POST', { name: 'Bad', color: 'red' })).status, 400);
+  const readingResponse = await request(statusPath, 'POST', {
+    name: 'Читаю',
+    color: '#aabbcc',
+  });
+  assert.equal(readingResponse.status, 201);
+  const reading = await readingResponse.json();
+  assert.equal(
+    (await request(statusPath, 'POST', { name: 'читаю', color: '#aabbcc' })).status,
+    409,
+  );
+  assert.equal(
+    (await request(`${statusPath}/${reading.key}`, 'PATCH', { isDefault: true })).status,
+    200,
+  );
+  assert.equal(
+    (await request(`${statusPath}/${reading.key}`, 'PATCH', { isDefault: false })).status,
+    400,
+  );
+  const statusNote = await (
+    await request('items', 'POST', { type: 'text', title: 'Custom default' })
+  ).json();
+  assert.equal(statusNote.status, reading.key);
+  assert.equal(statusNote.statusInfo.name, 'Читаю');
+  assert.equal(
+    (await request(`items/${statusNote.id}`, 'PATCH', { status: 'missing' })).status,
+    400,
+  );
+  assert.equal(
+    (await request('items', 'POST', { type: 'text', title: 'Bad status', status: 'missing' }))
+      .status,
+    400,
+  );
+  assert.equal(
+    (
+      await request('collections', 'POST', {
+        name: 'Bad status rule',
+        rules: { status: 'missing' },
+      })
+    ).status,
+    400,
+  );
+  const readingCollection = await (
+    await request('collections', 'POST', { name: 'Reading rule', rules: { status: reading.key } })
+  ).json();
+  assert.equal(
+    (await (await request(`items?collection=${readingCollection.id}`)).json()).items.length,
+    1,
+  );
+  assert.equal(
+    (
+      await request(`${statusPath}/${reading.key}`, 'PATCH', {
+        name: 'Изучаю',
+        color: '#123456',
+      })
+    ).status,
+    200,
+  );
+  const renamedItems = await (await request(`items?status=${reading.key}`)).json();
+  assert.ok(
+    renamedItems.items.some(row => row.id === statusNote.id && row.statusInfo.name === 'Изучаю'),
+  );
+  assert.ok(
+    (await (await request(`items?collection=${readingCollection.id}`)).json()).items.some(
+      row => row.id === statusNote.id,
+    ),
+  );
+  assert.equal(
+    (await request(`${statusPath}/order`, 'PATCH', { keys: [reading.key, 'saved', 'saved'] }))
+      .status,
+    400,
+  );
+  assert.equal(
+    (await request(`${statusPath}/order`, 'PATCH', { keys: [reading.key, 'done', 'saved'] }))
+      .status,
+    200,
+  );
+  assert.equal((await (await request(statusPath)).json())[0].key, reading.key);
+  assert.equal(
+    (await request('items/bulk', 'POST', { ids: [statusNote.id], action: 'setStatus' })).status,
+    400,
+  );
+  assert.equal(
+    (
+      await request('items/bulk', 'POST', {
+        ids: [statusNote.id],
+        action: 'setStatus',
+        status: 'done',
+      })
+    ).status,
+    201,
+  );
+  assert.equal(
+    (await request(`items/${statusNote.id}`, 'PATCH', { status: reading.key })).status,
+    200,
+  );
+  const statusShared = await (await request('spaces', 'POST', { name: 'Status sharing' })).json();
+  const sharedStatusPath = `spaces/${statusShared.id}/statuses`;
+  const sharedReading = await (
+    await request(sharedStatusPath, 'POST', {
+      name: 'В работе',
+      color: '#445566',
+    })
+  ).json();
+  assert.equal(
+    (await request(`${sharedStatusPath}/${sharedReading.key}`, 'PATCH', { isDefault: true }))
+      .status,
+    200,
+  );
+  const statusInvite = await (
+    await request(`spaces/${statusShared.id}/invites`, 'POST', { role: 'editor', days: 1 })
+  ).json();
+  assert.equal(
+    (await request(`invites/${statusInvite.token}/join`, 'POST', undefined, id + 1)).status,
+    201,
+  );
+  assert.equal((await request(sharedStatusPath, 'GET', undefined, id + 1)).status, 200);
+  for (const [path, method, body] of [
+    [sharedStatusPath, 'POST', { name: 'No permission', color: '#445566' }],
+    [`${sharedStatusPath}/${sharedReading.key}`, 'PATCH', { name: 'No permission' }],
+    [`${sharedStatusPath}/order`, 'PATCH', { keys: ['done', 'saved', sharedReading.key] }],
+    [`${sharedStatusPath}/${sharedReading.key}`, 'DELETE', { replacementKey: 'saved' }],
+  ]) {
+    assert.equal((await request(path, method, body, id + 1)).status, 403);
+  }
+  const statusCopy = await (
+    await request(`items/${statusNote.id}/copy`, 'POST', { spaceId: statusShared.id })
+  ).json();
+  assert.equal(statusCopy.status, sharedReading.key);
+  assert.equal(
+    (await request(`items/${statusCopy.id}`, 'PATCH', { status: 'done' }, id + 1)).status,
+    200,
+  );
+  assert.equal(
+    (await request(`items/${statusCopy.id}`, 'PATCH', { status: reading.key }, id + 1)).status,
+    400,
+  );
+  assert.equal((await request(`${statusPath}/${reading.key}`, 'DELETE')).status, 400);
+  assert.equal(
+    (await request(`${statusPath}/${reading.key}`, 'DELETE', { replacementKey: sharedReading.key }))
+      .status,
+    404,
+  );
+  const concurrentReplacement = await Promise.all([
+    request(`${statusPath}/${reading.key}`, 'DELETE', { replacementKey: 'done' }),
+    request(`items/${statusNote.id}`, 'PATCH', { status: reading.key }),
+  ]);
+  assert.equal(concurrentReplacement[0].status, 200);
+  assert.ok([200, 400].includes(concurrentReplacement[1].status));
+  const migratedStatusNote = (await (await request('items?status=done')).json()).items.find(
+    row => row.id === statusNote.id,
+  );
+  assert.ok(migratedStatusNote);
+  const migratedRule = (await (await request('collections')).json()).find(
+    row => row.id === readingCollection.id,
+  );
+  assert.equal(migratedRule.rules.status, 'done');
+  assert.ok((await (await request(statusPath)).json()).find(row => row.key === 'done').isDefault);
+  assert.equal(
+    (await request(`${statusPath}/saved`, 'DELETE', { replacementKey: 'done' })).status,
+    200,
+  );
+  const reopened = new Store();
+  try {
+    await reopened.ensurePersonalSpace(me.id);
+  } finally {
+    await reopened.$disconnect();
+  }
+  assert.deepEqual(
+    (await (await request(statusPath)).json()).map(row => row.key),
+    ['done'],
+  );
+  assert.equal((await request(`${statusPath}/done`, 'DELETE')).status, 400);
+  const botDefault = await saveIncoming(db, { ...message, message_id: 104 }, from);
+  assert.equal(botDefault.status, 'done');
+  const uploadedWithDefault = await (await request('items/media', 'POST', uploadForm())).json();
+  assert.equal(uploadedWithDefault.status, 'done');
+  assert.equal(
+    (await request('items', 'POST', { type: 'text', title: 'Explicit status', status: 'done' }))
+      .status,
+    201,
+  );
   console.info(
-    'Integration passed: CRUD, canonical dedup/concurrency, multiple and smart collections, bulk actions, metadata preservation, topic search, shared spaces, roles/invites/revocation, Telegram ingestion, private previews, upload/resend and migration restart (external APIs mocked).',
+    'Integration passed: CRUD, canonical dedup/concurrency, multiple and smart collections, bulk actions, metadata preservation, topic search, shared spaces, custom status permissions/defaults/reorder/atomic replacement, roles/invites/revocation, Telegram ingestion, private previews, upload/resend and migration restart (external APIs mocked).',
   );
 } catch (error) {
   await setTimeout(50);

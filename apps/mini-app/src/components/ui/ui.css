@@ -1,0 +1,35 @@
+.ui-button.secondary {
+  min-height: var(--control-height);
+  padding: var(--spacing-2) var(--spacing-3);
+  color: var(--space-accent);
+  background: var(--space-soft);
+  border: 1px solid var(--space-border);
+  border-radius: var(--radius-control);
+}
+
+.ui-button:disabled {
+  cursor: default;
+}
+
+:where(.ui-field) {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.ui-icon {
+  display: block;
+  flex-shrink: 0;
+}
+
+.ui-input {
+  width: 100%;
+  padding: 11px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--space-text);
+  background: var(--space-surface);
+  border: 1px solid var(--space-border);
+  border-radius: 7px;
+}

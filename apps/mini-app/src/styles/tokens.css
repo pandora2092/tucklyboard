@@ -1,0 +1,22 @@
+:root {
+  --space-accent: #536c42;
+  --space-soft: #e7eddf;
+  --space-background: #f7f8f3;
+  --space-border: #becdab;
+  --space-text: color-mix(in srgb, var(--space-accent) 25%, #303238);
+  --space-muted: color-mix(in srgb, var(--space-accent) 55%, #626262);
+  --space-surface: color-mix(in srgb, var(--space-background) 30%, #fff);
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --radius-sm: 6px;
+  --radius-control: 9px;
+  --radius-panel: 12px;
+  --radius-dialog: 18px;
+  --control-height: 42px;
+  --control-height-compact: 36px;
+  --icon-size: 20px;
+}

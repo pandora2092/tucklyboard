@@ -9,14 +9,18 @@ import {
 } from '@nestjs/common';
 import type { User } from '@prisma/client';
 
-import { type SpaceRole } from '@tuckly/contracts';
+import { DEFAULT_STATUSES, type SpaceRole, type SpaceTheme } from '@tuckly/contracts';
 
 import { Store } from '../database/database.service';
+import { TelegramMedia } from '../telegram/telegram-media.service';
 
 const hash = (token: string) => createHash('sha256').update(token).digest('hex');
 @Injectable()
 export class SpacesService {
-  constructor(@Inject(Store) private readonly db: Store) {}
+  constructor(
+    @Inject(Store) private readonly db: Store,
+    @Inject(TelegramMedia) private readonly telegram: TelegramMedia,
+  ) {}
   async access(user: User, spaceId?: string, write = false, owner = false) {
     const id = spaceId || (await this.db.ensurePersonalSpace(user.id));
     const member = await this.db.spaceMember.findUnique({
@@ -41,6 +45,7 @@ export class SpacesService {
     return rows.map(row => ({
       id: row.spaceId,
       name: row.space.name,
+      theme: row.space.theme,
       role: row.role,
       personal: row.space.personalUserId === user.id,
       memberCount: row.space._count.members,
@@ -48,9 +53,26 @@ export class SpacesService {
   }
   async create(user: User, name: string) {
     const space = await this.db.space.create({
-      data: { name, ownerId: user.id, members: { create: { userId: user.id, role: 'owner' } } },
+      data: {
+        name,
+        ownerId: user.id,
+        members: { create: { userId: user.id, role: 'owner' } },
+        statuses: { create: DEFAULT_STATUSES.map(status => ({ ...status })) },
+      },
     });
-    return { id: space.id, name: space.name, role: 'owner', personal: false, memberCount: 1 };
+    return {
+      id: space.id,
+      name: space.name,
+      theme: space.theme,
+      role: 'owner',
+      personal: false,
+      memberCount: 1,
+    };
+  }
+  async updateTheme(user: User, id: string, theme: SpaceTheme) {
+    await this.access(user, id, false, true);
+    await this.db.space.update({ where: { id }, data: { theme } });
+    return { ok: true };
   }
   async members(user: User, id: string) {
     await this.access(user, id);
@@ -90,8 +112,9 @@ export class SpacesService {
   async invite(user: User, spaceId: string, role: 'editor' | 'viewer', days: number) {
     const access = await this.access(user, spaceId, false, true);
     if (access.space.personalUserId) {
-      throw new BadRequestException('Создайте общее пространство для приглашений');
+      throw new BadRequestException('Для приглашений создайте отдельное пространство');
     }
+    const bot = await this.telegram.botUsername();
     const token = randomBytes(24).toString('base64url');
     const row = await this.db.spaceInvite.create({
       data: {
@@ -101,7 +124,6 @@ export class SpacesService {
         expiresAt: new Date(Date.now() + days * 86400000),
       },
     });
-    const bot = process.env.BOT_USERNAME?.replace(/^@/, '');
     return {
       id: row.id,
       role,
@@ -126,9 +148,20 @@ export class SpacesService {
   }
   async revoke(user: User, spaceId: string, id: string) {
     await this.access(user, spaceId, false, true);
-    await this.db.spaceInvite.updateMany({
-      where: { id, spaceId },
-      data: { revokedAt: new Date() },
+    await this.db.$transaction(async tx => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${id},0))`;
+      await tx.spaceInvite.updateMany({
+        where: { id, spaceId },
+        data: { revokedAt: new Date() },
+      });
+    });
+    return { ok: true };
+  }
+  async deleteInvite(user: User, spaceId: string, id: string) {
+    await this.access(user, spaceId, false, true);
+    await this.db.$transaction(async tx => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${id},0))`;
+      await tx.spaceInvite.deleteMany({ where: { id, spaceId } });
     });
     return { ok: true };
   }
@@ -153,8 +186,13 @@ export class SpacesService {
     const invite = await this.validInvite(token);
     return this.db.$transaction(async tx => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${invite.id},0))`;
-      const current = await tx.spaceInvite.findUniqueOrThrow({ where: { id: invite.id } });
-      if (current.revokedAt || current.expiresAt <= new Date() || current.uses >= current.maxUses) {
+      const current = await tx.spaceInvite.findUnique({ where: { id: invite.id } });
+      if (
+        !current ||
+        current.revokedAt ||
+        current.expiresAt <= new Date() ||
+        current.uses >= current.maxUses
+      ) {
         throw new NotFoundException('Приглашение недействительно');
       }
       const existing = await tx.spaceMember.findUnique({

@@ -33,6 +33,7 @@ model UserActivity {
 model Space {
   id String @id @default(cuid())
   name String
+  theme String @default("sage")
   ownerId String
   owner User @relation("SpaceOwner", fields: [ownerId], references: [id])
   personalUserId String? @unique
@@ -41,7 +42,20 @@ model Space {
   items Item[]
   collections Collection[]
   invites SpaceInvite[]
+  statuses BookmarkStatus[]
   createdAt DateTime @default(now())
+}
+model BookmarkStatus {
+  spaceId String
+  key String
+  name String
+  color String
+  position Int
+  isDefault Boolean @default(false)
+  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  items Item[]
+  @@id([spaceId, key])
+  @@unique([spaceId, name])
 }
 model SpaceMember {
   spaceId String
@@ -103,6 +117,7 @@ model Item {
   dismissedAutoTags String[] @default([])
   tags String[] @default([])
   status String @default("saved")
+  statusDefinition BookmarkStatus? @relation(fields: [spaceId, status], references: [spaceId, key], onDelete: Restrict, onUpdate: Cascade)
   embedding Float[] @default([])
   embeddingModel String?
   embeddingFingerprint String?
@@ -121,5 +136,6 @@ model Item {
   @@unique([spaceId, canonicalUrl])
   @@index([userId, createdAt])
   @@index([spaceId, createdAt])
+  @@index([spaceId, status])
   @@index([metadataStatus])
 }

@@ -1,33 +1,39 @@
 import { useState, type FormEvent } from 'react';
 
-import {
-  MEDIA_MIMES,
-  UPLOAD_LIMIT,
-  type Collection,
-  type Item,
-  type Space,
-} from '@tuckly/contracts';
+import { COPY, type BookmarkStatus, type Collection, type Item } from '@tuckly/contracts';
 
 import { catalogueApi } from '../../api/catalogue';
 import { errorMessage } from '../../api/client';
+import { ItemActions } from '../../components/ItemActions';
 import { MediaPreview } from '../../components/MediaPreview';
+import { Select } from '../../components/Select';
+import { Button } from '../../components/ui/Button';
+import { Dialog } from '../../components/ui/Dialog';
+import { Field, TextArea, TextInput } from '../../components/ui/Field';
+
+import { CollectionPicker } from './CollectionPicker';
+import { NewItemAttachments } from './NewItemAttachments';
+
+import './item-dialog.css';
 
 export function ItemDialog({
   item,
   spaceId,
-  spaces,
   collections,
+  statuses,
   telegramEnabled,
   onClose,
   onSaved,
+  onCopy,
 }: {
   item: Item | null;
   spaceId?: string;
-  spaces: Space[];
   collections: Collection[];
+  statuses: BookmarkStatus[];
   telegramEnabled: boolean;
   onClose: () => void;
   onSaved: () => void;
+  onCopy: (item: Item) => void;
 }) {
   const [title, setTitle] = useState(item?.title || ''),
     [url, setUrl] = useState(item?.url || ''),
@@ -35,16 +41,46 @@ export function ItemDialog({
     [tags, setTags] = useState(item?.tags.join(', ') || ''),
     [folders, setFolders] = useState<string[]>(item?.collections.map(c => c.id) || []),
     [dismissed, setDismissed] = useState<string[]>(item?.dismissedAutoTags || []),
-    [status, setStatus] = useState<'saved' | 'done'>(item?.status || 'saved'),
-    [target, setTarget] = useState(''),
-    [includeNote, setIncludeNote] = useState(false),
+    [status, setStatus] = useState(item?.status || statuses.find(row => row.isDefault)?.key || ''),
     [file, setFile] = useState<File | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [confirmCopy, setConfirmCopy] = useState(false);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [notice, setNotice] = useState('');
   const readOnly = Boolean(item && !item.canEdit);
-  async function save(e: FormEvent) {
+  const linkUrl = url.trim();
+  const draftType = file
+    ? file.type.startsWith('image/')
+      ? 'photo'
+      : 'video'
+    : linkUrl
+      ? 'link'
+      : 'text';
+  const draftCopy = COPY.newItem.types[draftType];
+  const changed = Boolean(
+    item &&
+    (title !== item.title ||
+      text !== item.text ||
+      tags !== item.tags.join(', ') ||
+      status !== item.status ||
+      folders.length !== item.collections.length ||
+      item.collections.some(c => !folders.includes(c.id)) ||
+      dismissed.length !== item.dismissedAutoTags.length ||
+      item.dismissedAutoTags.some(tag => !dismissed.includes(tag))),
+  );
+  function requestCopy() {
+    if (!item) {
+      return;
+    }
+    if (!readOnly && changed) {
+      setError('');
+      setConfirmCopy(true);
+    } else {
+      onCopy(item);
+    }
+  }
+  async function save(e: FormEvent, copyAfter = false) {
     e.preventDefault();
     if (readOnly) {
       return;
@@ -53,7 +89,7 @@ export function ItemDialog({
     setError('');
     try {
       const common = {
-        title: (title.trim() || file?.name || url || text.slice(0, 80)).slice(0, 300),
+        title: (title.trim() || file?.name || linkUrl || text.slice(0, 80)).slice(0, 300),
         text,
         tags: [
           ...new Set(
@@ -65,6 +101,7 @@ export function ItemDialog({
         ],
         collectionIds: folders,
         spaceId,
+        status: status || undefined,
       };
       if (file && !item) {
         await catalogueApi.upload(file, common);
@@ -75,8 +112,8 @@ export function ItemDialog({
         const created = await catalogueApi.create({
           ...common,
           title: title.trim() || undefined,
-          type: url ? 'link' : 'text',
-          ...(url ? { url } : {}),
+          type: linkUrl ? 'link' : 'text',
+          ...(linkUrl ? { url: linkUrl } : {}),
         });
         if (created.wasDuplicate) {
           setNotice('Такая ссылка уже сохранена. Коллекции и теги объединены.');
@@ -84,7 +121,11 @@ export function ItemDialog({
           return;
         }
       }
-      onSaved();
+      if (copyAfter && item) {
+        onCopy({ ...item, title: common.title, text, tags: common.tags });
+      } else {
+        onSaved();
+      }
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -127,66 +168,44 @@ export function ItemDialog({
   }
 
   return (
-    <div className={'overlay'} onClick={() => !busy && onClose()}>
-      <section
-        className={'dialog'}
-        role={'dialog'}
-        aria-modal={'true'}
-        aria-label={'Сохранённое'}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className={'dialog-top'}>
-          <h2>{item ? 'Ваша находка' : 'Новая находка'}</h2>
-          <button disabled={busy} aria-label={'Закрыть'} onClick={() => onClose()}>
-            ×
-          </button>
-        </div>
-        <form onSubmit={save}>
+    <Dialog
+      title={confirmCopy ? COPY.copyItem.saveHeading : item ? 'Ваша находка' : 'Новая находка'}
+      label={'Сохранённое'}
+      busy={busy}
+      onClose={onClose}
+      closeOnBackdrop
+      headerActions={
+        item && !confirmCopy ? <ItemActions disabled={busy} onCopy={requestCopy} /> : undefined
+      }
+    >
+      {confirmCopy ? (
+        <form onSubmit={event => save(event, true)}>
+          <p className={'copy-dialog-description'}>{COPY.copyItem.saveDescription}</p>
+          {error && (
+            <p className={'error'} role={'alert'}>
+              {error}
+            </p>
+          )}
+          <div className={'dialog-actions copy-dialog-actions'}>
+            <Button type={'button'} disabled={busy} onClick={() => setConfirmCopy(false)}>
+              {COPY.actions.cancel}
+            </Button>
+            <Button type={'submit'} variant={'primary'} disabled={busy || !title.trim()}>
+              {busy ? COPY.actions.saving : COPY.copyItem.saveAndContinue}
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <form onSubmit={event => save(event)}>
           {!item && (
-            <>
-              <label>
-                Ссылка
-                <input
-                  type={'url'}
-                  disabled={Boolean(file)}
-                  placeholder={'https://…'}
-                  value={url}
-                  onChange={e => setUrl(e.target.value)}
-                />
-              </label>
-              {telegramEnabled ? (
-                <label className={'upload'}>
-                  ＋ Фото или видео до 20 МБ
-                  <input
-                    type={'file'}
-                    disabled={busy || Boolean(url)}
-                    accept={MEDIA_MIMES.join(',')}
-                    onChange={e => {
-                      const chosen = e.target.files?.[0] || null;
-                      if (chosen && chosen.size > UPLOAD_LIMIT) {
-                        setError(
-                          'Для загрузки здесь выберите файл до 20 МБ. Большое видео можно отправить прямо боту.',
-                        );
-                        setFile(null);
-                        e.target.value = '';
-                        return;
-                      }
-                      setError('');
-                      setFile(chosen);
-                    }}
-                  />
-                  {file && <small>{file.name}</small>}
-                  <small>
-                    Файл будет отправлен в ваш чат с ботом и останется в Telegram. Для ссылки и
-                    файла создавайте отдельные карточки.
-                  </small>
-                </label>
-              ) : (
-                <p className={'storage-note'}>
-                  Загрузка медиа пока недоступна. Ссылки и заметки можно сохранять.
-                </p>
-              )}
-            </>
+            <div className={'new-item-type'} role={'status'}>
+              <div className={'new-item-type-heading'}>
+                <span>{COPY.newItem.typeLabel}</span>
+                <strong>{draftCopy.label}</strong>
+              </div>
+              <p>{draftCopy.hint}</p>
+              <small>{COPY.newItem.automatic}</small>
+            </div>
           )}
           {item && (item.previewUrl || item.mediaUrl || ['photo', 'video'].includes(item.type)) && (
             <MediaPreview item={item} detail />
@@ -194,14 +213,14 @@ export function ItemDialog({
           {item?.storage === 'telegram' && (
             <div className={'telegram-info'}>
               <p>Оригинал хранится в Telegram. Удаление карточки не удаляет файл из переписки.</p>
-              <button
+              <Button
                 type={'button'}
-                className={'primary'}
+                variant={'primary'}
                 disabled={busy || !item.canSendToChat}
                 onClick={sendToChat}
               >
                 Получить в Telegram ↗
-              </button>
+              </Button>
             </div>
           )}
           {item?.storage === 'legacy-s3' && (
@@ -220,56 +239,50 @@ export function ItemDialog({
               Открыть оригинал ↗
             </a>
           )}
-          <label>
-            Название
-            <input
-              placeholder={item ? 'Название' : 'Необязательно — подставим из ссылки'}
+          <Field label={item ? 'Название' : COPY.newItem.title}>
+            <TextInput
+              placeholder={item ? 'Название' : draftCopy.titlePlaceholder}
               disabled={readOnly}
               value={title}
               maxLength={300}
               onChange={e => setTitle(e.target.value)}
             />
-          </label>
-          <label>
-            Заметка
-            <textarea
+          </Field>
+          <Field label={item ? 'Заметка' : draftCopy.textLabel}>
+            <TextArea
               disabled={readOnly}
-              rows={3}
+              rows={!item && draftType === 'text' ? 5 : 3}
+              placeholder={item ? undefined : draftCopy.textPlaceholder}
               value={text}
               onChange={e => setText(e.target.value)}
             />
-          </label>
-          <fieldset disabled={readOnly}>
-            <legend>Коллекции</legend>
-            {collections
-              .filter(c => !c.rules)
-              .map(c => (
-                <label className={'inline-option'} key={c.id}>
-                  <input
-                    type={'checkbox'}
-                    checked={folders.includes(c.id)}
-                    onChange={e =>
-                      setFolders(ids =>
-                        e.target.checked ? [...ids, c.id] : ids.filter(id => id !== c.id),
-                      )
-                    }
-                  />
-                  {c.name}
-                </label>
+          </Field>
+          {!item && (
+            <NewItemAttachments
+              url={url}
+              setUrl={setUrl}
+              file={file}
+              setFile={setFile}
+              busy={busy}
+              telegramEnabled={telegramEnabled}
+              setError={setError}
+            />
+          )}
+          <CollectionPicker
+            collections={collections}
+            selected={folders}
+            onChange={setFolders}
+            disabled={readOnly}
+          />
+          <Field label={'Статус'}>
+            <Select disabled={readOnly} value={status} onChange={e => setStatus(e.target.value)}>
+              {statuses.map(row => (
+                <option key={row.key} value={row.key}>
+                  {row.name}
+                </option>
               ))}
-            {!collections.some(c => !c.rules) && <small>Без коллекций — во входящих</small>}
-          </fieldset>
-          <label>
-            Статус
-            <select
-              disabled={readOnly}
-              value={status}
-              onChange={e => setStatus(e.target.value as 'saved' | 'done')}
-            >
-              <option value={'saved'}>На потом</option>
-              <option value={'done'}>Просмотрено</option>
-            </select>
-          </label>
+            </Select>
+          </Field>
           {item?.metadataStatus === 'unavailable' && (
             <p className={'storage-note'}>
               Сайт не отдал данные. Ссылка сохранена; можно повторить получение метаданных.
@@ -282,7 +295,6 @@ export function ItemDialog({
             <p className={'storage-note'}>Название источника: {item.sourceTitle}</p>
           )}
           {item?.sourceDescription && <p className={'storage-note'}>{item.sourceDescription}</p>}
-          {item?.author && <small>Автор: {item.author}</small>}
           {item?.autoTags
             .filter(
               t =>
@@ -297,80 +309,24 @@ export function ItemDialog({
                 <span>Предложенный тег: #{t}</span>
                 {!readOnly && (
                   <>
-                    <button type={'button'} onClick={() => setTags(v => (v ? v + ', ' + t : t))}>
+                    <Button type={'button'} onClick={() => setTags(v => (v ? v + ', ' + t : t))}>
                       Принять
-                    </button>
-                    <button type={'button'} onClick={() => setDismissed(v => [...v, t])}>
+                    </Button>
+                    <Button type={'button'} onClick={() => setDismissed(v => [...v, t])}>
                       Скрыть
-                    </button>
+                    </Button>
                   </>
                 )}
               </div>
             ))}
-          {item?.url && !readOnly && (
-            <button
-              type={'button'}
-              disabled={busy}
-              onClick={() => {
-                void catalogueApi
-                  .retry(item.id)
-                  .then(() =>
-                    setNotice(
-                      'Обновление запланировано. Откройте карточку через несколько секунд.',
-                    ),
-                  )
-                  .catch(e => setError(errorMessage(e)));
-              }}
-            >
-              Обновить данные ссылки
-            </button>
-          )}
-          {item && (
-            <fieldset>
-              <legend>Копировать в пространство</legend>
-              <select value={target} onChange={e => setTarget(e.target.value)}>
-                <option value={''}>Выберите пространство</option>
-                {spaces
-                  .filter(s => s.id !== item.spaceId && s.role !== 'viewer')
-                  .map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-              </select>
-              <label className={'inline-option'}>
-                <input
-                  type={'checkbox'}
-                  checked={includeNote}
-                  onChange={e => setIncludeNote(e.target.checked)}
-                />
-                Включить мою заметку
-              </label>
-              <button
-                type={'button'}
-                disabled={!target || busy}
-                onClick={() => {
-                  setBusy(true);
-                  void catalogueApi
-                    .copy(item.id, target, includeNote)
-                    .then(() => setNotice('Скопировано в выбранное пространство'))
-                    .catch(e => setError(errorMessage(e)))
-                    .finally(() => setBusy(false));
-                }}
-              >
-                Копировать
-              </button>
-            </fieldset>
-          )}
-          <label>
-            Теги через запятую
-            <input
+          <Field label={'Теги через запятую'}>
+            <TextInput
               disabled={readOnly}
               placeholder={'вдохновение, почитать'}
               value={tags}
               onChange={e => setTags(e.target.value)}
             />
-          </label>
+          </Field>
           {error && (
             <p role={'alert'} className={'error'}>
               {error}
@@ -379,26 +335,27 @@ export function ItemDialog({
           {confirmRemove && (
             <p className={'storage-note'}>
               Карточка будет удалена. Оригинал файла останется в Telegram.{' '}
-              <button type={'button'} onClick={() => setConfirmRemove(false)}>
-                Отмена
-              </button>
+              <Button type={'button'} onClick={() => setConfirmRemove(false)}>
+                {COPY.actions.cancel}
+              </Button>
             </p>
           )}
           <div className={'dialog-actions'}>
             {item && !readOnly && (
-              <button type={'button'} className={'danger'} disabled={busy} onClick={remove}>
-                {confirmRemove ? 'Подтвердить удаление' : 'Удалить'}
-              </button>
+              <Button type={'button'} variant={'danger'} disabled={busy} onClick={remove}>
+                {confirmRemove ? 'Подтвердить удаление' : COPY.actions.delete}
+              </Button>
             )}
-            <button
-              className={'primary'}
+            <Button
+              type={'submit'}
+              variant={'primary'}
               disabled={readOnly || busy || (!title.trim() && !url && !text && !file)}
             >
-              {busy ? 'Сохраняем…' : 'Сохранить'}
-            </button>
+              {busy ? COPY.actions.saving : item ? COPY.actions.saveChanges : draftCopy.save}
+            </Button>
           </div>
         </form>
-      </section>
-    </div>
+      )}
+    </Dialog>
   );
 }
