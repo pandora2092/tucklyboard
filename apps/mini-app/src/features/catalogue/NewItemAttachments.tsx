@@ -41,9 +41,7 @@ export function NewItemAttachments({
             onChange={e => {
               const chosen = e.target.files?.[0] || null;
               if (chosen && chosen.size > UPLOAD_LIMIT) {
-                setError(
-                  'Для загрузки здесь выберите файл до 20 МБ. Большое видео можно отправить прямо боту.',
-                );
+                setError(COPY.newItem.uploadTooLarge);
                 setFile(null);
                 e.target.value = '';
                 return;

@@ -8,6 +8,7 @@ import {
   type Item,
   type ItemQuery,
   type Space,
+  type SpaceBackground,
   type SpaceTheme,
 } from '@tuckly/contracts';
 
@@ -65,7 +66,7 @@ export function useCatalogue() {
     void loadSpaces().catch(e => setError(errorMessage(e)));
   }, [loadSpaces]);
   const activeSpace = spaces.find(s => s.id === spaceId) || spaces.find(s => s.personal);
-  useSpaceTheme(activeSpace?.theme || 'sage');
+  useSpaceTheme(activeSpace?.theme || 'sage', activeSpace?.background);
   const activeSpaceId = activeSpace?.id;
   const previousSpaceId = useRef<string | undefined>(undefined);
   useEffect(() => {
@@ -102,8 +103,10 @@ export function useCatalogue() {
     setTag('');
     setStatus('');
   }
-  function updateSpaceTheme(id: string, theme: SpaceTheme) {
-    setSpaces(rows => rows.map(space => (space.id === id ? { ...space, theme } : space)));
+  function updateSpaceTheme(id: string, theme: SpaceTheme, background: SpaceBackground) {
+    setSpaces(rows =>
+      rows.map(space => (space.id === id ? { ...space, theme, background } : space)),
+    );
   }
   function updateSpaceName(id: string, name: string) {
     setSpaces(rows => rows.map(space => (space.id === id ? { ...space, name } : space)));

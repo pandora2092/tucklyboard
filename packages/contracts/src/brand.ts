@@ -1,3 +1,5 @@
+import { UPLOAD_LIMIT_MB } from './upload-limits.js';
+
 // Shared product dictionary for the Mini App, API and bot.
 // Package names and existing storage identifiers are configured separately.
 export const BRAND = {
@@ -14,11 +16,12 @@ export const COPY = {
     switched: (name: string) => `Вы перешли в пространство «${name}»`,
     dismissSwitch: 'Скрыть сообщение о смене пространства',
     themeHeading: 'Цвет пространства',
-    themeDescription: 'Цвет помогает отличать пространства. Он виден всем участникам.',
-    themeOwnerOnly: 'Менять цвет пространства может только владелец.',
-    themeSave: 'Сохранить цвет',
-    themeSaved: 'Цвет пространства сохранён',
-    themePreview: 'Предпросмотр цвета пространства',
+    themeDescription:
+      'Оформление видно всем участникам пространства. Ниже — предпросмотр изменений.',
+    themeOwnerOnly: 'Менять оформление пространства может только владелец.',
+    themeSave: 'Сохранить оформление',
+    themeSaved: 'Оформление сохранено',
+    themePreview: 'Предпросмотр оформления пространства',
     previewCollection: 'Всё сохранённое',
     previewAction: 'Добавить находку',
     themes: {
@@ -40,7 +43,8 @@ export const COPY = {
     attachments: 'Ссылка или файл — необязательно',
     link: 'Ссылка — необязательно',
     linkPlaceholder: 'https://example.com',
-    upload: 'Фото или видео до 20 МБ — необязательно',
+    upload: `Фото или видео до ${UPLOAD_LIMIT_MB} МБ — необязательно`,
+    uploadTooLarge: `Для загрузки здесь выберите файл до ${UPLOAD_LIMIT_MB} МБ. Большое видео можно отправить прямо боту.`,
     types: {
       text: {
         label: 'Заметка',

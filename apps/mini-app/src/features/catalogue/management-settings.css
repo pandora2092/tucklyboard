@@ -66,13 +66,9 @@
 }
 
 .settings-collection-list {
-  max-height: min(360px, 45dvh);
   padding: 0;
   margin: var(--spacing-3) 0;
-  overflow: auto;
-  overscroll-behavior: contain;
   list-style: none;
-  scrollbar-width: thin;
 }
 
 .settings-collection-list li {
@@ -119,4 +115,57 @@
 .settings-delete-panel p {
   font-size: 12px;
   line-height: 1.8;
+}
+
+.settings-section-heading {
+  display: block;
+  margin: 0;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+
+.settings-section-toggle {
+  display: flex;
+  gap: var(--spacing-3);
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  font-size: 18px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.settings-section-count {
+  flex-shrink: 0;
+  padding: 3px var(--spacing-2);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--space-muted);
+  white-space: nowrap;
+  background: var(--space-soft);
+  border-radius: var(--radius-control);
+}
+
+.settings-section-chevron {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 22px;
+  color: var(--space-accent);
+}
+
+.settings-section-collapse,
+.settings-show-more {
+  min-height: 44px;
+  padding: var(--spacing-2) var(--spacing-3);
+  margin-top: var(--spacing-3);
+  font-size: 12px;
+  color: var(--space-accent);
+  background: var(--space-soft);
+  border-radius: var(--radius-control);
+}
+
+.settings-show-more {
+  display: block;
+  margin-bottom: var(--spacing-3);
 }

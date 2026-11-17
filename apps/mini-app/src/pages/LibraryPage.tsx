@@ -90,7 +90,7 @@ export function LibraryPage() {
         setCollection={setCollection}
         addCollection={() => setCollectionDialog(true)}
       />
-      <main>
+      <main className={canEdit && selection.selectedIds.length ? 'has-bulk-selection' : undefined}>
         <LibraryHeader
           data={catalogue}
           changeSpace={changeSpace}
@@ -202,7 +202,9 @@ export function LibraryPage() {
           }}
           onClose={() => setSettings(false)}
           onChanged={refresh}
-          onThemeChanged={theme => updateSpaceTheme(activeSpace.id, theme)}
+          onThemeChanged={(theme, background) =>
+            updateSpaceTheme(activeSpace.id, theme, background)
+          }
         />
       )}
       {creatingSpace && (

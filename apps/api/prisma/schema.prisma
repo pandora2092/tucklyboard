@@ -34,6 +34,7 @@ model Space {
   id String @id @default(cuid())
   name String
   theme String @default("sage")
+  background Json @default("{\"pattern\":\"dots\",\"contrast\":42,\"scale\":\"small\"}")
   ownerId String
   owner User @relation("SpaceOwner", fields: [ownerId], references: [id])
   personalUserId String? @unique

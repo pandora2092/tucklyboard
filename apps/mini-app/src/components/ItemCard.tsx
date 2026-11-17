@@ -12,11 +12,13 @@ export function ItemCard({
   onOpen,
   onTag,
   onCopyLink,
+  measurementOnly = false,
 }: {
   item: Item;
   onOpen: (item: Item) => void;
   onTag: (tag: string) => void;
   onCopyLink: (url: string) => void;
+  measurementOnly?: boolean;
 }) {
   const longPress = useLongPress(Boolean(i.url), () => {
     if (i.url) {
@@ -47,7 +49,7 @@ export function ItemCard({
       }}
     >
       <div className={`preview ${i.type}`}>
-        <MediaPreview item={i} />
+        {!measurementOnly && <MediaPreview item={i} />}
         <span className={'type-badge'}>
           {
             (

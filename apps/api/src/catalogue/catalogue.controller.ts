@@ -31,7 +31,7 @@ import {
   MEDIA_MIMES,
   UpdateCollectionSchema,
   UpdateItemSchema,
-  UPLOAD_LIMIT,
+  UPLOAD_FORM_LIMITS,
 } from '@tuckly/contracts';
 
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
@@ -88,7 +88,7 @@ export class CatalogueController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
-      limits: { fileSize: UPLOAD_LIMIT, files: 1, fields: 1, fieldSize: 25000 },
+      limits: UPLOAD_FORM_LIMITS,
       fileFilter: (_req, file, callback) =>
         callback(
           MEDIA_MIMES.includes(file.mimetype)

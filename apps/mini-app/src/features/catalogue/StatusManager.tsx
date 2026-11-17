@@ -7,6 +7,9 @@ import { statusesApi } from '../../api/statuses';
 import { Select } from '../../components/Select';
 import { Button } from '../../components/ui/Button';
 import { Field, TextInput } from '../../components/ui/Field';
+import { SETTINGS_LIST_PAGE_SIZE } from '../../constants/settings-list';
+
+import { SettingsSection } from './SettingsSection';
 
 export function StatusManager({
   space,
@@ -20,6 +23,13 @@ export function StatusManager({
   onChanged: () => void;
 }) {
   const [statuses, setStatuses] = useState<BookmarkStatus[]>([]);
+  const [query, setQuery] = useState('');
+  const [visibleCount, setVisibleCount] = useState(SETTINGS_LIST_PAGE_SIZE);
+  const filtered = statuses
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) =>
+      row.name.toLocaleLowerCase('ru').includes(query.trim().toLocaleLowerCase('ru')),
+    );
   const [loading, setLoading] = useState(true),
     [error, setError] = useState('');
   const [editing, setEditing] = useState<string | null>(null);
@@ -103,12 +113,21 @@ export function StatusManager({
   function move(index: number, offset: number) {
     const keys = statuses.map(row => row.key);
     [keys[index], keys[index + offset]] = [keys[index + offset], keys[index]];
+    if (!query.trim() && index + offset >= visibleCount) {
+      setVisibleCount(count => count + SETTINGS_LIST_PAGE_SIZE);
+    }
     void perform(() => statusesApi.reorder(space.id, keys));
   }
   return (
-    <section
-      className={'settings-block'}
-      aria-label={'Статусы закладок'}
+    <SettingsSection
+      title={'Статусы'}
+      count={loading ? '…' : statuses.length}
+      label={'Статусы закладок'}
+      disabled={busy || Boolean(editing) || Boolean(deleting)}
+      onCollapse={() => {
+        setVisibleCount(SETTINGS_LIST_PAGE_SIZE);
+        setQuery('');
+      }}
       onKeyDown={event => {
         if (event.key === 'Escape' && !busy && (editing || deleting)) {
           event.preventDefault();
@@ -121,7 +140,6 @@ export function StatusManager({
         }
       }}
     >
-      <h3 className={'settings-heading'}>Статусы закладок</h3>
       <p className={'settings-description'}>
         Создавайте свои статусы и выбирайте порядок. Статус по умолчанию получают новые закладки.
       </p>
@@ -133,11 +151,24 @@ export function StatusManager({
           {error}
         </p>
       )}
+      {!loading && statuses.length > 0 && (
+        <TextInput
+          type={'search'}
+          aria-label={'Найти статус в настройках'}
+          placeholder={'Найти статус'}
+          value={query}
+          disabled={busy || Boolean(editing) || Boolean(deleting)}
+          onChange={event => {
+            setQuery(event.target.value);
+            setVisibleCount(SETTINGS_LIST_PAGE_SIZE);
+          }}
+        />
+      )}
       {loading ? (
         <p role={'status'}>Загружаем статусы…</p>
       ) : (
         <ol className={'status-list'} aria-label={'Статусы пространства'}>
-          {statuses.map((row, index) => (
+          {filtered.slice(0, visibleCount).map(({ row, index }) => (
             <li key={row.key} className={editing === row.key ? 'status-row-editing' : undefined}>
               <span
                 className={'status-dot'}
@@ -271,6 +302,16 @@ export function StatusManager({
           ))}
         </ol>
       )}
+      {!loading && !filtered.length && <p className={'settings-description'}>Статусы не найдены</p>}
+      {filtered.length > visibleCount && (
+        <Button
+          className={'settings-show-more'}
+          disabled={busy || Boolean(editing) || Boolean(deleting)}
+          onClick={() => setVisibleCount(count => count + SETTINGS_LIST_PAGE_SIZE)}
+        >
+          Показать ещё {Math.min(SETTINGS_LIST_PAGE_SIZE, filtered.length - visibleCount)}
+        </Button>
+      )}
       {owner && deleting && (
         <section className={'status-delete-panel'} aria-label={'Удаление статуса'}>
           <h3>Удалить «{deleting.name}»?</h3>
@@ -349,6 +390,6 @@ export function StatusManager({
           </div>
         </form>
       )}
-    </section>
+    </SettingsSection>
   );
 }

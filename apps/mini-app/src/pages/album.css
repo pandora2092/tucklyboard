@@ -30,15 +30,17 @@
 
 .app .heading {
   gap: 16px;
-  background-image: radial-gradient(ellipse at 90% 20%, var(--space-soft), transparent 65%);
 }
 
 .app {
-  background-image: radial-gradient(
-    color-mix(in srgb, var(--space-border) 25%, transparent) 0.45px,
-    transparent 0.6px
+  background-image: var(
+    --space-pattern-image,
+    radial-gradient(
+      color-mix(in srgb, var(--space-border) 42%, transparent) 0.6px,
+      transparent 0.8px
+    )
   );
-  background-size: 7px 7px;
+  background-size: var(--space-pattern-size, 7px 7px);
 }
 
 .app .library-sidebar {

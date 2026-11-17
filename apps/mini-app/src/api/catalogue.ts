@@ -27,6 +27,7 @@ import {
   type ItemDetails,
   type ItemQuery,
   type SmartRules,
+  type SpaceBackground,
   type SpaceTheme,
   type UpdateCollection,
   type UpdateItem,
@@ -41,10 +42,10 @@ export const catalogueApi = {
   createSpace(name: string) {
     return request('spaces', SpaceSchema, { method: 'POST', body: { name } });
   },
-  updateSpaceTheme(id: string, theme: SpaceTheme) {
+  updateSpaceTheme(id: string, theme: SpaceTheme, background: SpaceBackground) {
     return request(`spaces/${encodeURIComponent(id)}`, OkSchema, {
       method: 'PATCH',
-      body: UpdateSpaceSchema.parse({ theme }),
+      body: UpdateSpaceSchema.parse({ theme, background }),
     });
   },
   renameSpace(id: string, name: string) {

@@ -23,7 +23,6 @@ export function useBulkActions({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [confirmation, setConfirmation] = useState<'tags' | 'delete' | null>(null);
   const selectedIds = checked.filter(id => items.some(item => item.id === id));
   function clear() {
     setChecked([]);
@@ -32,18 +31,9 @@ export function useBulkActions({
     setStatus('');
     setNotice('');
     setError('');
-    setConfirmation(null);
   }
   async function apply(action: BulkKind, value?: string) {
     if (!selectedIds.length || busy) {
-      return;
-    }
-    if (action === 'delete' && value !== 'confirmed') {
-      setConfirmation('delete');
-      return;
-    }
-    if (action === 'addTags' && !value) {
-      setConfirmation('tags');
       return;
     }
     setBusy(true);
@@ -80,7 +70,6 @@ export function useBulkActions({
     busy,
     error,
     notice,
-    confirmation,
     clear,
     setFolder,
     setStatus,
@@ -101,22 +90,18 @@ export function useBulkActions({
       setNotice('');
       setError('');
     },
-    async execute() {
-      if (!kind) {
-        return;
+    async execute(value?: string) {
+      if (!kind || !selectedIds.length || busy) {
+        return false;
       }
       try {
-        await apply(kind, kind === 'setStatus' ? status : undefined);
+        await apply(kind, kind === 'setStatus' ? status : value);
+        return true;
       } catch (error) {
         setError(errorMessage(error));
+        return false;
       }
     },
-    dismissConfirmation: () => setConfirmation(null),
-    confirm: (value: string) =>
-      apply(
-        confirmation === 'tags' ? 'addTags' : 'delete',
-        confirmation === 'tags' ? value : 'confirmed',
-      ),
   };
 }
 

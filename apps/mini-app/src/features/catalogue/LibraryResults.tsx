@@ -118,6 +118,15 @@ export function LibraryResults({
           items={items}
           grid={grid}
           scrollAnchor={data.scrollAnchor}
+          renderMeasurement={item => (
+            <ItemCard
+              item={item}
+              measurementOnly
+              onOpen={onOpen}
+              onTag={onTag}
+              onCopyLink={onCopyLink}
+            />
+          )}
           renderItem={item => (
             <>
               <div className={'card-actions'}>

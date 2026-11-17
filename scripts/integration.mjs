@@ -477,6 +477,23 @@ try {
   // Shared spaces require membership; readers cannot mutate, editors can.
   const shared = await (await request('spaces', 'POST', { name: 'Shared integration' })).json();
   assert.equal(shared.theme, 'sage');
+  assert.deepEqual(shared.background, { pattern: 'dots', contrast: 42, scale: 'small' });
+  const customBackground = { pattern: 'crosses', contrast: 65, scale: 'medium' };
+  assert.equal(
+    (await request(`spaces/${shared.id}`, 'PATCH', { background: customBackground })).status,
+    200,
+  );
+  assert.deepEqual(
+    (await db.space.findUniqueOrThrow({ where: { id: shared.id } })).background,
+    customBackground,
+  );
+  for (const background of [
+    { ...customBackground, contrast: 81 },
+    { ...customBackground, pattern: 'unknown' },
+    { pattern: 'dots' },
+  ]) {
+    assert.equal((await request(`spaces/${shared.id}`, 'PATCH', { background })).status, 400);
+  }
   assert.equal(
     (await request(`spaces/${shared.id}`, 'PATCH', { theme: 'ocean' }, null)).status,
     401,
@@ -520,6 +537,27 @@ try {
     ).theme,
     'ocean',
   );
+  assert.deepEqual(
+    (await (await request('spaces', 'GET', undefined, id + 1)).json()).find(
+      space => space.id === shared.id,
+    ).background,
+    customBackground,
+  );
+  assert.equal(
+    (
+      await request(
+        `spaces/${shared.id}`,
+        'PATCH',
+        { background: { ...customBackground, pattern: 'none' } },
+        id + 1,
+      )
+    ).status,
+    403,
+  );
+  assert.deepEqual(
+    (await db.space.findUniqueOrThrow({ where: { id: shared.id } })).background,
+    customBackground,
+  );
   const copied = await (
     await request(`items/${canonical.id}/copy`, 'POST', { spaceId: shared.id })
   ).json();
@@ -553,6 +591,11 @@ try {
   );
   assert.equal(
     (await request(`spaces/${shared.id}`, 'PATCH', { theme: 'rose' }, id + 1)).status,
+    403,
+  );
+  assert.equal(
+    (await request(`spaces/${shared.id}`, 'PATCH', { background: customBackground }, id + 1))
+      .status,
     403,
   );
   assert.equal(

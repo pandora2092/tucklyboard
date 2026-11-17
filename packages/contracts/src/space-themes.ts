@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { SpaceBackgroundSchema } from './space-backgrounds.js';
+
 export const SpaceThemeSchema = z.enum(['sage', 'ocean', 'lavender', 'sand', 'rose']);
 export type SpaceTheme = z.infer<typeof SpaceThemeSchema>;
 
@@ -17,11 +19,13 @@ export const SPACE_THEMES = {
 export const UpdateSpaceSchema = z
   .object({
     theme: SpaceThemeSchema.optional(),
+    background: SpaceBackgroundSchema.optional(),
     name: z.string().trim().min(1).max(80).optional(),
   })
   .strict()
   .refine(
-    value => value.theme !== undefined || value.name !== undefined,
+    value =>
+      value.theme !== undefined || value.name !== undefined || value.background !== undefined,
     'Укажите изменения пространства',
   );
 export type UpdateSpace = z.infer<typeof UpdateSpaceSchema>;

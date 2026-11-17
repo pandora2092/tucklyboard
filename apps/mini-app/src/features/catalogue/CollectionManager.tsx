@@ -6,8 +6,10 @@ import { catalogueApi } from '../../api/catalogue';
 import { errorMessage } from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { TextInput } from '../../components/ui/Field';
+import { SETTINGS_LIST_PAGE_SIZE } from '../../constants/settings-list';
 
 import { CollectionDialog } from './CollectionDialog';
+import { SettingsSection } from './SettingsSection';
 
 export function CollectionManager({
   space,
@@ -29,6 +31,7 @@ export function CollectionManager({
   const [editing, setEditing] = useState<Collection | null | undefined>(undefined);
   const [deleting, setDeleting] = useState<Collection | null>(null);
   const [query, setQuery] = useState('');
+  const [visibleCount, setVisibleCount] = useState(SETTINGS_LIST_PAGE_SIZE);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const cancelDelete = useRef<HTMLButtonElement>(null);
@@ -60,8 +63,16 @@ export function CollectionManager({
     collection.name.toLocaleLowerCase('ru').includes(query.trim().toLocaleLowerCase('ru')),
   );
   return (
-    <section className={'settings-block'} aria-label={'Управление коллекциями'}>
-      <h3 className={'settings-heading'}>Коллекции</h3>
+    <SettingsSection
+      title={'Коллекции'}
+      count={collections.length}
+      label={'Управление коллекциями'}
+      disabled={busy || editing !== undefined || Boolean(deleting)}
+      onCollapse={() => {
+        setVisibleCount(SETTINGS_LIST_PAGE_SIZE);
+        setQuery('');
+      }}
+    >
       {editing !== undefined ? (
         <>
           <p className={'settings-description'}>
@@ -96,11 +107,14 @@ export function CollectionManager({
               placeholder={'Найти коллекцию'}
               value={query}
               disabled={busy}
-              onChange={event => setQuery(event.target.value)}
+              onChange={event => {
+                setQuery(event.target.value);
+                setVisibleCount(SETTINGS_LIST_PAGE_SIZE);
+              }}
             />
           )}
           <ul className={'settings-collection-list'} aria-label={'Коллекции пространства'}>
-            {visible.map(collection => (
+            {visible.slice(0, visibleCount).map(collection => (
               <li key={collection.id}>
                 <div className={'settings-collection-summary'}>
                   <b>{collection.name}</b>
@@ -138,6 +152,15 @@ export function CollectionManager({
               </li>
             ))}
           </ul>
+          {visible.length > visibleCount && (
+            <Button
+              className={'settings-show-more'}
+              disabled={busy || Boolean(deleting)}
+              onClick={() => setVisibleCount(count => count + SETTINGS_LIST_PAGE_SIZE)}
+            >
+              Показать ещё {Math.min(SETTINGS_LIST_PAGE_SIZE, visible.length - visibleCount)}
+            </Button>
+          )}
           {!visible.length && (
             <p className={'settings-description'}>
               {collections.length ? 'Коллекции не найдены' : 'Коллекций пока нет'}
@@ -201,6 +224,6 @@ export function CollectionManager({
           {notice}
         </p>
       )}
-    </section>
+    </SettingsSection>
   );
 }

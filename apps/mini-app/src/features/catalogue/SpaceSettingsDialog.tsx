@@ -1,6 +1,12 @@
 import { useState } from 'react';
 
-import type { BookmarkStatus, Collection, Space, SpaceTheme } from '@tuckly/contracts';
+import type {
+  BookmarkStatus,
+  Collection,
+  Space,
+  SpaceBackground,
+  SpaceTheme,
+} from '@tuckly/contracts';
 
 import { Dialog } from '../../components/ui/Dialog';
 
@@ -30,7 +36,7 @@ export function SpaceSettingsDialog({
   onSpaceDeleted: () => Promise<void>;
   onClose: () => void;
   onChanged: () => void;
-  onThemeChanged: (theme: SpaceTheme) => void;
+  onThemeChanged: (theme: SpaceTheme, background: SpaceBackground) => void;
 }) {
   const [busy, setBusy] = useState(false);
   return (
@@ -58,6 +64,12 @@ export function SpaceSettingsDialog({
             onDeleted={onSpaceDeleted}
           />
         </section>
+        <SpaceThemeSettings
+          space={space}
+          busy={busy}
+          onBusyChange={setBusy}
+          onThemeChanged={onThemeChanged}
+        />
         <CollectionManager
           space={space}
           collections={collections}
@@ -66,12 +78,6 @@ export function SpaceSettingsDialog({
           onBusyChange={setBusy}
           onChanged={onChanged}
           onDeleted={onCollectionDeleted}
-        />
-        <SpaceThemeSettings
-          space={space}
-          busy={busy}
-          onBusyChange={setBusy}
-          onThemeChanged={onThemeChanged}
         />
         <StatusManager space={space} busy={busy} onBusyChange={setBusy} onChanged={onChanged} />
       </div>

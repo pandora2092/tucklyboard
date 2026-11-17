@@ -1,14 +1,24 @@
 import './bulk-actions.css';
 
+import { useEffect, useState, type FormEvent } from 'react';
+
 import { COPY, type BookmarkStatus, type Collection, type Item } from '@tuckly/contracts';
 
-import { ActionDialog } from '../../components/ActionDialog';
 import { Select } from '../../components/Select';
 import { Button } from '../../components/ui/Button';
 import { Checkbox } from '../../components/ui/Checkbox';
-import { Field } from '../../components/ui/Field';
+import { Dialog } from '../../components/ui/Dialog';
+import { Field, TextInput } from '../../components/ui/Field';
 
 import type { BulkActions, BulkKind } from './useBulkActions';
+
+const actions: BulkKind[] = [
+  'addCollections',
+  'removeCollections',
+  'addTags',
+  'setStatus',
+  'delete',
+];
 
 export function BulkActionsBar({
   selection,
@@ -21,156 +31,219 @@ export function BulkActionsBar({
   collections: Collection[];
   statuses: BookmarkStatus[];
 }) {
+  const [open, setOpen] = useState(false);
+  const [tags, setTags] = useState('');
+  const count = selection.selectedIds.length;
+  const isOpen = open && count > 0;
+  const manualCollections = collections.filter(collection => !collection.rules);
+  const collectionAction =
+    selection.kind === 'addCollections' || selection.kind === 'removeCollections';
+  useEffect(() => {
+    if (!count) {
+      setOpen(false);
+      setTags('');
+    }
+  }, [count]);
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [isOpen]);
+  function close() {
+    setOpen(false);
+    selection.chooseKind('');
+    setTags('');
+  }
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (await selection.execute(tags)) {
+      setOpen(false);
+      setTags('');
+    }
+  }
   return (
     <>
-      {selection.selectedIds.length > 0 && (
+      {count > 0 && (
         <section className={'bulk-tools'} aria-label={COPY.bulk.action}>
-          <div className={'bulk-selection'}>
-            <label>
-              <Checkbox
-                disabled={selection.busy || !items.length}
-                indeterminate={
-                  selection.selectedIds.length > 0 && selection.selectedIds.length < items.length
-                }
-                checked={items.length > 0 && items.every(i => selection.selectedIds.includes(i.id))}
-                onChange={e => selection.selectAll(e.target.checked)}
-              />
-              {COPY.bulk.selectAll}
-            </label>
-            {selection.selectedIds.length > 0 && (
-              <>
-                <strong>{COPY.bulk.selected(selection.selectedIds.length)}</strong>
-                <Button
-                  type={'button'}
-                  className={'bulk-clear'}
-                  disabled={selection.busy}
-                  onClick={selection.clear}
-                >
-                  {COPY.bulk.clear}
-                </Button>
-              </>
-            )}
-          </div>
-          {selection.selectedIds.length > 0 ? (
-            <div className={'bulk-action-form'}>
-              <Field label={COPY.bulk.action} className={'filter-field'}>
-                <Select
-                  aria-label={COPY.bulk.action}
-                  value={selection.kind}
-                  disabled={selection.busy}
-                  onChange={e => selection.chooseKind(e.target.value as BulkKind | '')}
-                >
-                  <option value={''}>{COPY.bulk.chooseAction}</option>
-                  <option value={'addCollections'}>{COPY.bulk.addCollections}</option>
-                  <option value={'removeCollections'}>{COPY.bulk.removeCollections}</option>
-                  <option value={'addTags'}>{COPY.bulk.addTags}</option>
-                  <option value={'setStatus'}>{COPY.bulk.setStatus}</option>
-                  <option value={'delete'}>{COPY.bulk.delete}</option>
-                </Select>
-              </Field>
-              {(selection.kind === 'addCollections' || selection.kind === 'removeCollections') && (
+          <strong role={'status'} aria-live={'polite'}>
+            Выбрано: {count}
+          </strong>
+          <Button
+            variant={'primary'}
+            className={'bulk-open'}
+            disabled={selection.busy}
+            aria-haspopup={'dialog'}
+            aria-expanded={isOpen}
+            onClick={() => setOpen(true)}
+          >
+            Действия
+          </Button>
+          <Button
+            className={'bulk-clear'}
+            disabled={selection.busy}
+            aria-label={COPY.bulk.clear}
+            title={COPY.bulk.clear}
+            onClick={selection.clear}
+          >
+            ×
+          </Button>
+        </section>
+      )}
+      {selection.notice && (
+        <div className={'bulk-notice'} role={'status'}>
+          <span>{selection.notice}</span>
+          <Button aria-label={'Скрыть уведомление'} onClick={selection.clear}>
+            ×
+          </Button>
+        </div>
+      )}
+      {isOpen && (
+        <Dialog
+          className={'bulk-sheet'}
+          title={selection.kind ? COPY.bulk[selection.kind] : 'Действия с карточками'}
+          subtitle={COPY.bulk.selected(count)}
+          busy={selection.busy}
+          scrollBody
+          closeOnBackdrop
+          onClose={close}
+          onEscape={selection.kind ? () => selection.chooseKind('') : close}
+          eyebrow={
+            selection.kind ? (
+              <Button
+                className={'bulk-back'}
+                disabled={selection.busy}
+                onClick={() => selection.chooseKind('')}
+              >
+                ← К действиям
+              </Button>
+            ) : undefined
+          }
+        >
+          {!selection.kind ? (
+            <>
+              <label className={'bulk-select-all'}>
+                <Checkbox
+                  indeterminate={count > 0 && count < items.length}
+                  checked={
+                    items.length > 0 && items.every(item => selection.selectedIds.includes(item.id))
+                  }
+                  onChange={event => selection.selectAll(event.target.checked)}
+                />
+                <span>
+                  {COPY.bulk.selectAll} ({items.length})
+                </span>
+              </label>
+              <div className={'bulk-action-list'}>
+                {actions.map(action => (
+                  <Button
+                    key={action}
+                    className={
+                      action === 'delete' ? 'bulk-action bulk-action-delete' : 'bulk-action'
+                    }
+                    onClick={() => selection.chooseKind(action)}
+                  >
+                    <span>{COPY.bulk[action]}</span>
+                    <span aria-hidden={'true'}>›</span>
+                  </Button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <form className={'bulk-action-form'} onSubmit={submit}>
+              {collectionAction && (
                 <Field
                   label={
                     selection.kind === 'removeCollections'
                       ? COPY.bulk.removeFromCollection
                       : COPY.bulk.collection
                   }
-                  className={'filter-field'}
                 >
                   <Select
-                    aria-label={
-                      selection.kind === 'removeCollections'
-                        ? COPY.bulk.removeFromCollection
-                        : COPY.bulk.collection
-                    }
                     value={selection.folder}
                     disabled={selection.busy}
-                    onChange={e => selection.setFolder(e.target.value)}
+                    onChange={event => selection.setFolder(event.target.value)}
                   >
                     <option value={''}>{COPY.bulk.chooseCollection}</option>
-                    {collections
-                      .filter(c => !c.rules)
-                      .map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                  </Select>
-                </Field>
-              )}
-              {selection.kind === 'setStatus' && (
-                <Field label={COPY.bulk.status} className={'filter-field'}>
-                  <Select
-                    aria-label={COPY.bulk.status}
-                    value={selection.status}
-                    disabled={selection.busy}
-                    onChange={e => selection.setStatus(e.target.value)}
-                  >
-                    <option value={''}>{COPY.bulk.chooseStatus}</option>
-                    {statuses.map(row => (
-                      <option key={row.key} value={row.key}>
-                        {row.name}
+                    {manualCollections.map(collection => (
+                      <option key={collection.id} value={collection.id}>
+                        {collection.name}
                       </option>
                     ))}
                   </Select>
                 </Field>
               )}
-              {selection.kind && (
-                <Button
-                  type={'button'}
-                  className={
-                    selection.kind === 'delete' ? 'danger bulk-apply' : 'primary bulk-apply'
-                  }
-                  disabled={
-                    selection.busy ||
-                    ((selection.kind === 'addCollections' ||
-                      selection.kind === 'removeCollections') &&
-                      !collections.some(c => c.id === selection.folder && !c.rules)) ||
-                    (selection.kind === 'setStatus' &&
-                      !statuses.some(row => row.key === selection.status))
-                  }
-                  onClick={() => void selection.execute()}
-                >
-                  {selection.busy
-                    ? COPY.bulk.applying
-                    : selection.kind === 'addTags' || selection.kind === 'delete'
-                      ? COPY.bulk.continue
-                      : COPY.bulk[selection.kind]}
-                </Button>
+              {selection.kind === 'setStatus' && (
+                <Field label={COPY.bulk.status}>
+                  <Select
+                    value={selection.status}
+                    disabled={selection.busy}
+                    onChange={event => selection.setStatus(event.target.value)}
+                  >
+                    <option value={''}>{COPY.bulk.chooseStatus}</option>
+                    {statuses.map(status => (
+                      <option key={status.key} value={status.key}>
+                        {status.name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
               )}
-              {(selection.kind === 'addCollections' || selection.kind === 'removeCollections') &&
-                !collections.some(c => !c.rules) && (
-                  <p className={'bulk-hint'}>{COPY.bulk.noCollections}</p>
-                )}
+              {selection.kind === 'addTags' && (
+                <Field label={'Теги через запятую'}>
+                  <TextInput
+                    required
+                    maxLength={300}
+                    disabled={selection.busy}
+                    value={tags}
+                    onChange={event => setTags(event.target.value)}
+                    placeholder={'Идеи, прочитать'}
+                  />
+                </Field>
+              )}
+              {selection.kind === 'delete' && (
+                <p className={'bulk-delete-warning'}>
+                  Удалить выбранные карточки ({count})? Они исчезнут из всех коллекций этого
+                  пространства. Отменить удаление нельзя.
+                </p>
+              )}
+              {collectionAction && !manualCollections.length && (
+                <p className={'bulk-hint'}>{COPY.bulk.noCollections}</p>
+              )}
               {selection.kind === 'removeCollections' && (
                 <p className={'bulk-hint'}>{COPY.bulk.removeHint}</p>
               )}
-            </div>
-          ) : (
-            <p className={'bulk-hint'}>{COPY.bulk.selectionHint}</p>
+              {selection.error && (
+                <p className={'error'} role={'alert'}>
+                  {selection.error}
+                </p>
+              )}
+              <Button
+                type={'submit'}
+                variant={selection.kind === 'delete' ? 'danger' : 'primary'}
+                className={'bulk-apply'}
+                disabled={
+                  selection.busy ||
+                  (collectionAction &&
+                    !manualCollections.some(collection => collection.id === selection.folder)) ||
+                  (selection.kind === 'setStatus' &&
+                    !statuses.some(status => status.key === selection.status)) ||
+                  (selection.kind === 'addTags' && !tags.split(',').some(tag => tag.trim()))
+                }
+              >
+                {selection.busy
+                  ? COPY.bulk.applying
+                  : selection.kind === 'delete'
+                    ? `Удалить карточки (${count})`
+                    : 'Применить'}
+              </Button>
+            </form>
           )}
-          {selection.error && (
-            <p className={'error'} role={'alert'}>
-              {selection.error}
-            </p>
-          )}
-        </section>
-      )}
-      {selection.notice && (
-        <p className={'bulk-hint'} role={'status'}>
-          {selection.notice}
-        </p>
-      )}
-      {selection.confirmation && (
-        <ActionDialog
-          title={
-            selection.confirmation === 'tags' ? COPY.bulk.tagsHeading : COPY.bulk.deleteHeading
-          }
-          label={selection.confirmation === 'tags' ? 'Теги через запятую' : undefined}
-          submit={selection.confirmation === 'tags' ? COPY.actions.save : COPY.actions.delete}
-          onClose={selection.dismissConfirmation}
-          onSubmit={selection.confirm}
-        />
+        </Dialog>
       )}
     </>
   );

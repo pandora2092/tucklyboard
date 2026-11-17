@@ -1,11 +1,13 @@
 import { z } from 'zod';
 
 import { ITEM_TAG_LIMIT } from './item-tags.js';
+import { DEFAULT_SPACE_BACKGROUND, SpaceBackgroundSchema } from './space-backgrounds.js';
 import { SpaceThemeSchema } from './space-themes.js';
 import { StatusKeySchema, StatusSchema } from './statuses.js';
 
 export * from './statuses.js';
 export * from './space-themes.js';
+export * from './space-backgrounds.js';
 
 export { effectiveItemTags, editedTagDismissals, ITEM_TAG_LIMIT } from './item-tags.js';
 export { CATALOGUE_LIMITS } from './catalogue-limits.js';
@@ -13,8 +15,7 @@ export { BRAND_ARTWORK } from './brand-artwork.js';
 export { BRAND, COPY } from './brand.js';
 export { createWebInviteUrl } from './invites.js';
 
-export const UPLOAD_LIMIT = 20 * 1024 * 1024;
-export const MEDIA_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm'];
+export { UPLOAD_LIMIT_MB, UPLOAD_LIMIT, UPLOAD_FORM_LIMITS, MEDIA_MIMES } from './upload-limits.js';
 export const ItemTypeSchema = z.enum(['link', 'text', 'photo', 'video']);
 const title = z.string().trim().min(1).max(300);
 const id = z.string().min(1);
@@ -174,6 +175,7 @@ export const SpaceSchema = z.object({
   id: z.string(),
   name: z.string(),
   theme: SpaceThemeSchema.default('sage'),
+  background: SpaceBackgroundSchema.default(DEFAULT_SPACE_BACKGROUND),
   personal: z.boolean(),
   role: SpaceRoleSchema,
   memberCount: z.number().int(),
