@@ -19,6 +19,7 @@ import {
   SourcesSchema,
   SpaceSchema,
   SpacesSchema,
+  UpdateCollectionSchema,
   UpdateItemSchema,
   UpdateSpaceSchema,
   type BulkAction,
@@ -27,6 +28,7 @@ import {
   type ItemQuery,
   type SmartRules,
   type SpaceTheme,
+  type UpdateCollection,
   type UpdateItem,
 } from '@tuckly/contracts';
 
@@ -44,6 +46,15 @@ export const catalogueApi = {
       method: 'PATCH',
       body: UpdateSpaceSchema.parse({ theme }),
     });
+  },
+  renameSpace(id: string, name: string) {
+    return request(`spaces/${encodeURIComponent(id)}`, OkSchema, {
+      method: 'PATCH',
+      body: UpdateSpaceSchema.parse({ name }),
+    });
+  },
+  deleteSpace(id: string) {
+    return request(`spaces/${encodeURIComponent(id)}`, OkSchema, { method: 'DELETE' });
   },
   members(id: string) {
     return request(`spaces/${id}/members`, MembersSchema);
@@ -121,6 +132,15 @@ export const catalogueApi = {
       method: 'POST',
       body: CreateCollectionSchema.parse({ name, spaceId, rules }),
     });
+  },
+  updateCollection(id: string, data: UpdateCollection) {
+    return request(`collections/${encodeURIComponent(id)}`, OkSchema, {
+      method: 'PATCH',
+      body: UpdateCollectionSchema.parse(data),
+    });
+  },
+  deleteCollection(id: string) {
+    return request(`collections/${encodeURIComponent(id)}`, OkSchema, { method: 'DELETE' });
   },
   create(data: CreateItem) {
     return request('items', ItemSchema, {

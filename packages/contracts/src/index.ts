@@ -1,11 +1,15 @@
 import { z } from 'zod';
 
+import { ITEM_TAG_LIMIT } from './item-tags.js';
 import { SpaceThemeSchema } from './space-themes.js';
 import { StatusKeySchema, StatusSchema } from './statuses.js';
 
 export * from './statuses.js';
 export * from './space-themes.js';
 
+export { effectiveItemTags, editedTagDismissals, ITEM_TAG_LIMIT } from './item-tags.js';
+export { CATALOGUE_LIMITS } from './catalogue-limits.js';
+export { BRAND_ARTWORK } from './brand-artwork.js';
 export { BRAND, COPY } from './brand.js';
 export { createWebInviteUrl } from './invites.js';
 
@@ -27,7 +31,7 @@ export const SmartRulesSchema = z
   .strict();
 export type SmartRules = z.infer<typeof SmartRulesSchema>;
 const text = z.string().max(20000);
-const tags = z.array(z.string().trim().min(1).max(40)).max(20);
+const tags = z.array(z.string().trim().min(1).max(40)).max(ITEM_TAG_LIMIT);
 const collectionId = z.string().min(1).nullable().optional();
 export const ItemDetailsSchema = z
   .object({
@@ -79,6 +83,17 @@ export const CreateCollectionSchema = z
     rules: SmartRulesSchema.optional(),
   })
   .strict();
+export const UpdateCollectionSchema = z
+  .object({
+    name: z.string().trim().min(1).max(80).optional(),
+    rules: SmartRulesSchema.optional(),
+  })
+  .strict()
+  .refine(
+    value => value.name !== undefined || value.rules !== undefined,
+    'Укажите изменения коллекции',
+  );
+export type UpdateCollection = z.infer<typeof UpdateCollectionSchema>;
 export const ItemQuerySchema = z
   .object({
     type: ItemTypeSchema.optional(),
@@ -134,6 +149,8 @@ export const ItemSchema = z.object({
 export const ItemListSchema = z.object({
   items: z.array(ItemSchema),
   nextCursor: z.string().nullable(),
+  total: z.number().int().nonnegative(),
+  searchScopeLimit: z.number().int().positive().nullable().optional(),
   searchEngine: z.enum(['text', 'topics', 'embeddings']).optional(),
 });
 export const MeSchema = z.object({

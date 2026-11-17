@@ -14,4 +14,14 @@ export const SPACE_THEMES = {
   { accent: string; soft: string; background: string; border: string }
 >;
 
-export const UpdateSpaceSchema = z.object({ theme: SpaceThemeSchema }).strict();
+export const UpdateSpaceSchema = z
+  .object({
+    theme: SpaceThemeSchema.optional(),
+    name: z.string().trim().min(1).max(80).optional(),
+  })
+  .strict()
+  .refine(
+    value => value.theme !== undefined || value.name !== undefined,
+    'Укажите изменения пространства',
+  );
+export type UpdateSpace = z.infer<typeof UpdateSpaceSchema>;

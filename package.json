@@ -11,7 +11,7 @@
     "build": "npm run build:contracts && npm run build -w @tuckly/api && npm run build -w @tuckly/mini-app",
     "db:generate": "npm run db:generate -w @tuckly/api",
     "db:push": "npm run db:push -w @tuckly/api",
-    "test": "npm run test -w @tuckly/contracts && npm run test -w @tuckly/api",
+    "test": "npm run test -w @tuckly/contracts && npm run test -w @tuckly/api && npm run test -w @tuckly/mini-app",
     "format": "prettier --write .",
     "test:integration": "node scripts/integration.mjs",
     "dev": "node scripts/dev.mjs",
@@ -24,7 +24,9 @@
     "lint:fix": "oxlint --fix && npm run lint:styles:fix && npm run format",
     "lint:code": "oxlint",
     "lint:styles": "stylelint \"apps/**/*.css\"",
-    "lint:styles:fix": "stylelint \"apps/**/*.css\" --fix"
+    "lint:styles:fix": "stylelint \"apps/**/*.css\" --fix",
+    "branding:export": "npm run build:contracts && node scripts/export-branding.mjs",
+    "branding:bot": "npm run build:contracts && node scripts/sync-bot-branding.mjs"
   },
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "^4.7.1",

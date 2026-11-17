@@ -10,6 +10,7 @@ import { Select } from '../../components/Select';
 import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
 import { Field, TextArea, TextInput } from '../../components/ui/Field';
+import { initialItemNote } from '../../lib/item-note';
 
 import { CollectionPicker } from './CollectionPicker';
 import { NewItemAttachments } from './NewItemAttachments';
@@ -32,15 +33,14 @@ export function ItemDialog({
   statuses: BookmarkStatus[];
   telegramEnabled: boolean;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (result?: 'deleted') => void;
   onCopy: (item: Item) => void;
 }) {
   const [title, setTitle] = useState(item?.title || ''),
     [url, setUrl] = useState(item?.url || ''),
-    [text, setText] = useState(item?.text || ''),
+    [text, setText] = useState(() => initialItemNote(item)),
     [tags, setTags] = useState(item?.tags.join(', ') || ''),
     [folders, setFolders] = useState<string[]>(item?.collections.map(c => c.id) || []),
-    [dismissed, setDismissed] = useState<string[]>(item?.dismissedAutoTags || []),
     [status, setStatus] = useState(item?.status || statuses.find(row => row.isDefault)?.key || ''),
     [file, setFile] = useState<File | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -65,9 +65,7 @@ export function ItemDialog({
       tags !== item.tags.join(', ') ||
       status !== item.status ||
       folders.length !== item.collections.length ||
-      item.collections.some(c => !folders.includes(c.id)) ||
-      dismissed.length !== item.dismissedAutoTags.length ||
-      item.dismissedAutoTags.some(tag => !dismissed.includes(tag))),
+      item.collections.some(c => !folders.includes(c.id))),
   );
   function requestCopy() {
     if (!item) {
@@ -107,7 +105,7 @@ export function ItemDialog({
         await catalogueApi.upload(file, common);
       } else if (item) {
         const { spaceId: _space, ...changes } = common;
-        await catalogueApi.update(item.id, { ...changes, dismissedAutoTags: dismissed, status });
+        await catalogueApi.update(item.id, { ...changes, status });
       } else {
         const created = await catalogueApi.create({
           ...common,
@@ -159,7 +157,7 @@ export function ItemDialog({
     setBusy(true);
     try {
       await catalogueApi.remove(item.id);
-      onSaved();
+      onSaved('deleted');
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -283,42 +281,12 @@ export function ItemDialog({
               ))}
             </Select>
           </Field>
-          {item?.metadataStatus === 'unavailable' && (
-            <p className={'storage-note'}>
-              Сайт не отдал данные. Ссылка сохранена; можно повторить получение метаданных.
-            </p>
-          )}
           {(item?.metadataStatus === 'pending' || item?.metadataStatus === 'processing') && (
             <p className={'storage-note'}>Получаем название и данные источника…</p>
           )}
           {item?.sourceTitle && item.sourceTitle !== item.title && (
             <p className={'storage-note'}>Название источника: {item.sourceTitle}</p>
           )}
-          {item?.sourceDescription && <p className={'storage-note'}>{item.sourceDescription}</p>}
-          {item?.autoTags
-            .filter(
-              t =>
-                !dismissed.includes(t) &&
-                !tags
-                  .split(',')
-                  .map(v => v.trim())
-                  .includes(t),
-            )
-            .map(t => (
-              <div className={'inline-option'} key={t}>
-                <span>Предложенный тег: #{t}</span>
-                {!readOnly && (
-                  <>
-                    <Button type={'button'} onClick={() => setTags(v => (v ? v + ', ' + t : t))}>
-                      Принять
-                    </Button>
-                    <Button type={'button'} onClick={() => setDismissed(v => [...v, t])}>
-                      Скрыть
-                    </Button>
-                  </>
-                )}
-              </div>
-            ))}
           <Field label={'Теги через запятую'}>
             <TextInput
               disabled={readOnly}

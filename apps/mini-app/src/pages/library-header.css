@@ -10,6 +10,10 @@
   min-width: 0;
 }
 
+.mobile-brand {
+  display: none;
+}
+
 .space-picker .select-trigger {
   width: 100%;
   max-width: 320px;
@@ -80,5 +84,13 @@
 @media (width <= 700px) {
   .library-header {
     padding: var(--spacing-3) 0;
+  }
+
+  .mobile-brand {
+    display: block;
+    grid-column: 1 / -1;
+    width: 120px;
+    padding-bottom: var(--spacing-1);
+    color: var(--space-text);
   }
 }

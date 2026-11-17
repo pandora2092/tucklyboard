@@ -9,6 +9,8 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 
+import { UI_TIMING_MS } from '../constants/timing';
+
 import { Button } from './ui/Button';
 
 import './select.css';
@@ -171,8 +173,9 @@ export function Select({
             const now = Date.now();
             search.current = {
               text:
-                (now - search.current.time < 700 ? search.current.text : '') +
-                event.key.toLocaleLowerCase(),
+                (now - search.current.time < UI_TIMING_MS.selectTypeaheadReset
+                  ? search.current.text
+                  : '') + event.key.toLocaleLowerCase(),
               time: now,
             };
             const index = options.findIndex(

@@ -2,6 +2,9 @@ import './sidebar.css';
 
 import { BRAND, type Collection } from '@tuckly/contracts';
 
+import { BrandLogo } from './BrandLogo';
+import { BrandMark } from './BrandMark';
+import { CollectionCover } from './CollectionCover';
 import { Button } from './ui/Button';
 
 export function Sidebar({
@@ -21,12 +24,11 @@ export function Sidebar({
 }) {
   return (
     <aside className={'library-sidebar'}>
-      <a className={'brand'} href={'#'}>
-        {BRAND.name}
-        <span>✳</span>
+      <a className={'brand'} href={'#'} aria-label={`${BRAND.name} — ${BRAND.tagline}`}>
+        <BrandLogo />
       </a>
       <div className={'space'}>
-        <span className={'avatar'}>М</span>
+        <span className={'avatar'}>{spaceName.slice(0, 1).toUpperCase()}</span>
         <div>
           <b>{spaceName}</b>
           <small>Всё, что хочется сохранить</small>
@@ -54,7 +56,7 @@ export function Sidebar({
           className={collection === c.id ? 'nav active' : 'nav'}
           onClick={() => setCollection(c.id)}
         >
-          <span>▱</span>
+          <CollectionCover name={c.name} compact />
           {c.rules ? '✧ ' : ''}
           {c.name}
           <small>{c._count.items}</small>
@@ -62,7 +64,7 @@ export function Sidebar({
       ))}
       {!collections.length && <p className={'hint'}>Соберите идеи в свою первую коллекцию.</p>}
       <div className={'aside-bottom'}>
-        <span>✳</span>
+        <BrandMark />
         <p>
           Хорошие находки
           <br />

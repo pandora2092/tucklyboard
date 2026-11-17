@@ -9,6 +9,9 @@ import { Prisma, type User } from '@prisma/client';
 
 import {
   BRAND,
+  CATALOGUE_LIMITS,
+  editedTagDismissals,
+  effectiveItemTags,
   ItemSchema,
   SmartRulesSchema,
   type BulkAction,
@@ -16,6 +19,7 @@ import {
   type ItemDetails,
   type ItemQuery,
   type SmartRules,
+  type UpdateCollection,
   type UpdateItem,
 } from '@tuckly/contracts';
 
@@ -84,6 +88,7 @@ export class CatalogueService {
     const isTelegram = Boolean(item.telegramFileId);
     return ItemSchema.parse({
       ...item,
+      tags: effectiveItemTags(item),
       statusInfo: item.statusDefinition,
       createdAt: item.createdAt.toISOString(),
       collections: item.collections.map(entry => ({
@@ -185,6 +190,52 @@ export class CatalogueService {
       _count: { items: 0 },
     };
   }
+  private async editableCollection(user: User, id: string) {
+    const collection = await this.db.collection.findUnique({ where: { id } });
+    if (!collection?.spaceId) {
+      throw new NotFoundException('Коллекция недоступна');
+    }
+    await this.spaces.access(user, collection.spaceId, true);
+    return collection;
+  }
+  async updateCollection(user: User, id: string, data: UpdateCollection) {
+    const collection = await this.editableCollection(user, id);
+    if (data.rules !== undefined && collection.rules === null) {
+      throw new BadRequestException('Условия можно менять только у умной коллекции');
+    }
+    try {
+      await this.db.$transaction(async tx => {
+        if (data.rules?.status) {
+          await resolveStatus(tx, collection.spaceId!, data.rules.status);
+        }
+        await tx.collection.update({
+          where: { id },
+          data: {
+            ...(data.name !== undefined ? { name: data.name } : {}),
+            ...(data.rules !== undefined ? { rules: data.rules as Prisma.InputJsonValue } : {}),
+          },
+        });
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new BadRequestException('Коллекция с таким названием уже есть');
+      }
+      throw error;
+    }
+    return { ok: true };
+  }
+  async removeCollection(user: User, id: string) {
+    const collection = await this.editableCollection(user, id);
+    await this.db.$transaction(async tx => {
+      await tx.item.updateMany({
+        where: { spaceId: collection.spaceId, collectionId: id },
+        data: { collectionId: null },
+      });
+      await tx.itemCollection.deleteMany({ where: { collectionId: id } });
+      await tx.collection.delete({ where: { id } });
+    });
+    return { ok: true };
+  }
   async sources(user: User, spaceId?: string) {
     const access = await this.spaces.access(user, spaceId);
     const rows = await this.db.item.groupBy({
@@ -230,9 +281,10 @@ export class CatalogueService {
       const rows = await this.db.item.findMany({
         where: { AND },
         include,
-        take: 2000,
+        take: CATALOGUE_LIMITS.semanticCandidates,
         orderBy: { createdAt: 'desc' },
       });
+      const scopeTotal = await this.db.item.count({ where: { AND } });
       const vector = await this.embeddings.embed(q.q);
       let embedded = false;
       const ranked = rows
@@ -256,10 +308,18 @@ export class CatalogueService {
           (a, b) => b.score - a.score || b.item.createdAt.getTime() - a.item.createdAt.getTime(),
         );
       const offset = q.cursor && /^semantic:\d+$/.test(q.cursor) ? Number(q.cursor.slice(9)) : 0;
-      const slice = ranked.slice(offset, offset + 40);
+      const slice = ranked.slice(offset, offset + CATALOGUE_LIMITS.pageSize);
       return {
         items: await Promise.all(slice.map(row => this.view(row.item, access.role !== 'viewer'))),
-        nextCursor: ranked.length > offset + 40 ? `semantic:${offset + 40}` : null,
+        nextCursor:
+          ranked.length > offset + CATALOGUE_LIMITS.pageSize
+            ? `semantic:${offset + CATALOGUE_LIMITS.pageSize}`
+            : null,
+        total: ranked.length,
+        searchScopeLimit:
+          scopeTotal > CATALOGUE_LIMITS.semanticCandidates
+            ? CATALOGUE_LIMITS.semanticCandidates
+            : null,
         searchEngine: embedded ? 'embeddings' : 'topics',
       };
     }
@@ -274,18 +334,23 @@ export class CatalogueService {
         ],
       });
     }
+    const total = await this.db.item.count({ where: { AND } });
     const rows = await this.db.item.findMany({
       where: { AND },
       include,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: 41,
+      take: CATALOGUE_LIMITS.pageSize + 1,
       ...(q.cursor ? { cursor: { id: q.cursor }, skip: 1 } : {}),
     });
     return {
       items: await Promise.all(
-        rows.slice(0, 40).map(item => this.view(item, access.role !== 'viewer')),
+        rows
+          .slice(0, CATALOGUE_LIMITS.pageSize)
+          .map(item => this.view(item, access.role !== 'viewer')),
       ),
-      nextCursor: rows.length > 40 ? rows[39].id : null,
+      nextCursor:
+        rows.length > CATALOGUE_LIMITS.pageSize ? rows[CATALOGUE_LIMITS.pageSize - 1].id : null,
+      total,
       searchEngine: 'text',
     };
   }
@@ -443,10 +508,13 @@ export class CatalogueService {
         where: { id },
         data: {
           ...values,
+          ...(data.tags !== undefined
+            ? { dismissedAutoTags: editedTagDismissals(item, data.tags) }
+            : {}),
           ...(data.title && data.title !== item.title ? { titleMode: 'custom' } : {}),
           embeddingModel: null,
           embedding: [],
-          ...(data.text !== undefined
+          ...(data.text !== undefined || data.tags !== undefined
             ? { metadataStatus: 'pending', metadataUpdatedAt: null }
             : {}),
         },
@@ -587,6 +655,7 @@ export class CatalogueService {
               .join(' '),
           ),
           tags: item.tags,
+          dismissedAutoTags: item.dismissedAutoTags,
           metadataStatus: item.metadataStatus === 'processing' ? 'pending' : item.metadataStatus,
           mediaKey: item.mediaKey,
           mime: item.mime,

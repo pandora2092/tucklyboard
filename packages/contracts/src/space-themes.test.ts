@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import { SPACE_THEMES, SpaceThemeSchema, UpdateSpaceSchema } from './space-themes';
 
-void test('space themes only accept the supported palette and cannot update other space fields', () => {
+void test('space updates accept names and supported themes but protect ownership', () => {
   for (const theme of Object.keys(SPACE_THEMES)) {
     assert.equal(UpdateSpaceSchema.parse({ theme }).theme, theme);
   }
@@ -11,6 +11,13 @@ void test('space themes only accept the supported palette and cannot update othe
     assert.equal(SpaceThemeSchema.safeParse(theme).success, false);
   }
   assert.equal(UpdateSpaceSchema.safeParse({}).success, false);
+  assert.equal(UpdateSpaceSchema.parse({ name: '  Новое имя  ' }).name, 'Новое имя');
+  assert.equal(UpdateSpaceSchema.safeParse({ name: '   ' }).success, false);
+  assert.equal(UpdateSpaceSchema.safeParse({ name: 'x'.repeat(81) }).success, false);
+  assert.equal(
+    UpdateSpaceSchema.safeParse({ name: 'Имя', personalUserId: 'other' }).success,
+    false,
+  );
   assert.equal(UpdateSpaceSchema.safeParse({ theme: 'ocean', ownerId: 'other' }).success, false);
 });
 

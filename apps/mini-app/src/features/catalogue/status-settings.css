@@ -3,12 +3,6 @@
   max-width: 100%;
 }
 
-.settings-space {
-  margin: 0 0 var(--spacing-6);
-  font-size: 12px;
-  color: var(--space-muted);
-}
-
 .settings-heading {
   display: block;
   margin-bottom: var(--spacing-3);
@@ -138,4 +132,33 @@
   .status-actions {
     flex-basis: 100%;
   }
+}
+
+.status-form > h3 {
+  margin: 0 0 var(--spacing-3);
+  font-size: 14px;
+}
+
+.status-form .status-form-fields {
+  gap: var(--spacing-2);
+  align-items: flex-end;
+}
+
+.dialog .status-form .status-form-fields label {
+  margin: 0;
+}
+
+.status-form .status-form-fields input[type='color'] {
+  width: var(--control-height);
+}
+
+.status-form .status-add-button {
+  display: grid;
+  flex: 0 0 var(--control-height);
+  place-items: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  padding: 0;
+  font-size: 22px;
+  line-height: 1;
 }

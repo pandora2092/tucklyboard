@@ -42,8 +42,8 @@ export function SpaceThemeSettings({
   }
 
   return (
-    <form className={'space-theme-settings'} onSubmit={saveTheme}>
-      <h3 className={'settings-heading'}>{COPY.space.themeHeading}</h3>
+    <form className={'settings-block space-theme-settings'} onSubmit={saveTheme}>
+      <h3 className={'settings-heading'}>Оформление</h3>
       <p className={'settings-description'}>{COPY.space.themeDescription}</p>
       <div className={'theme-options'} role={'group'} aria-label={COPY.space.themeHeading}>
         {(Object.keys(SPACE_THEMES) as SpaceTheme[]).map(key => (

@@ -38,8 +38,32 @@
   border-radius: var(--radius-sm);
 }
 
+.delete-dialog-actions {
+  display: flex;
+  gap: var(--spacing-3);
+  justify-content: flex-end;
+  margin-top: var(--spacing-5);
+}
+
+.delete-dialog-actions button {
+  min-height: var(--control-height);
+  padding: var(--spacing-2) var(--spacing-4);
+  border: 1px solid var(--space-border);
+  border-radius: var(--radius-control);
+}
+
+.delete-dialog-actions .delete-confirm {
+  color: #fff;
+  background: #a34036;
+  border-color: #a34036;
+}
+
 .item-actions-popover button:hover {
   background: var(--space-soft);
+}
+
+.item-actions-popover .item-actions-delete {
+  color: #a34036;
 }
 
 .card-actions {

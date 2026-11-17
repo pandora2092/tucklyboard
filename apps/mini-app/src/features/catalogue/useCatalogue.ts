@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
+  CATALOGUE_LIMITS,
   COPY,
   type BookmarkStatus,
   type Collection,
@@ -11,8 +12,11 @@ import {
 } from '@tuckly/contracts';
 
 import { catalogueApi } from '../../api/catalogue';
+import { loadCatalogueWindow } from '../../api/catalogue-window';
 import { errorMessage } from '../../api/client';
 import { statusesApi } from '../../api/statuses';
+import { UI_TIMING_MS } from '../../constants/timing';
+import { captureCatalogueScroll, type CatalogueScrollAnchor } from '../../lib/catalogue-scroll';
 import { useSpaceTheme } from '../../lib/space-theme';
 
 export function useCatalogue() {
@@ -28,6 +32,15 @@ export function useCatalogue() {
     [error, setError] = useState(''),
     [revision, setRevision] = useState(0),
     [telegramEnabled, setTelegramEnabled] = useState(false);
+  const [total, setTotal] = useState<number | null>(null);
+  const [searchScopeLimit, setSearchScopeLimit] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [moreError, setMoreError] = useState('');
+  const [refreshError, setRefreshError] = useState('');
+  const [scrollAnchor, setScrollAnchor] = useState<CatalogueScrollAnchor | null>(null);
+  const loadedCount = useRef(0);
+  const loadedKey = useRef('');
+  const moreRequest = useRef<AbortController | null>(null);
   const [spaces, setSpaces] = useState<Space[]>([]),
     [spaceId, setSpaceId] = useState(''),
     [source, setSource] = useState(''),
@@ -42,7 +55,7 @@ export function useCatalogue() {
     if (!spaceSwitchNotice) {
       return;
     }
-    const timer = setTimeout(() => setSpaceSwitchNotice(''), 6000);
+    const timer = setTimeout(() => setSpaceSwitchNotice(''), UI_TIMING_MS.spaceSwitchNotice);
     return () => clearTimeout(timer);
   }, [spaceSwitchNotice, spaceId]);
   const loadSpaces = useCallback(async () => {
@@ -70,6 +83,10 @@ export function useCatalogue() {
     }
     ++generation.current;
     setItems([]);
+    loadedCount.current = 0;
+    loadedKey.current = '';
+    setTotal(null);
+    setScrollAnchor(null);
     setCollections([]);
     setStatuses([]);
     setSources([]);
@@ -87,6 +104,13 @@ export function useCatalogue() {
   }
   function updateSpaceTheme(id: string, theme: SpaceTheme) {
     setSpaces(rows => rows.map(space => (space.id === id ? { ...space, theme } : space)));
+  }
+  function updateSpaceName(id: string, name: string) {
+    setSpaces(rows => rows.map(space => (space.id === id ? { ...space, name } : space)));
+  }
+  function removeSpaceLocally(id: string) {
+    changeSpace('');
+    setSpaces(rows => rows.filter(space => space.id !== id));
   }
   const generation = useRef(0);
   const filters = useMemo(
@@ -106,12 +130,27 @@ export function useCatalogue() {
   useEffect(() => {
     const controller = new AbortController();
     const requestGeneration = ++generation.current;
-    setLoading(true);
+    const key = JSON.stringify([filters, activeSpaceId]);
+    const preserve = loadedKey.current === key;
+    const targetCount = preserve ? loadedCount.current : CATALOGUE_LIMITS.pageSize;
+    moreRequest.current?.abort();
+    moreRequest.current = null;
+    setLoading(!preserve);
+    setRefreshing(preserve);
+    setRefreshError('');
+    setMoreError('');
+    if (!preserve) {
+      loadedCount.current = 0;
+      setItems([]);
+      setTotal(null);
+      setSearchScopeLimit(null);
+      setScrollAnchor(null);
+    }
     setLoadingMore(false);
     setError('');
     const timer = setTimeout(() => {
       Promise.all([
-        catalogueApi.list(filters, controller.signal),
+        loadCatalogueWindow(filters, targetCount, controller.signal),
         catalogueApi.collections(controller.signal, spaceId || undefined),
         catalogueApi.me(controller.signal),
         catalogueApi.sources(spaceId || undefined),
@@ -127,6 +166,13 @@ export function useCatalogue() {
           }
           setSearchEngine(data.searchEngine || 'text');
           setSources(origins);
+          if (preserve) {
+            setScrollAnchor(captureCatalogueScroll());
+          }
+          loadedCount.current = data.items.length;
+          loadedKey.current = key;
+          setTotal(data.total);
+          setSearchScopeLimit(data.searchScopeLimit || null);
           setItems(data.items);
           setCursor(data.nextCursor);
           setCollections(folders);
@@ -135,50 +181,76 @@ export function useCatalogue() {
         })
         .catch(error => {
           if (!controller.signal.aborted && requestGeneration === generation.current) {
-            setError(errorMessage(error));
+            if (preserve) {
+              setRefreshError(errorMessage(error));
+            } else {
+              setError(errorMessage(error));
+            }
           }
         })
         .finally(() => {
           if (!controller.signal.aborted && requestGeneration === generation.current) {
             setLoading(false);
+            setRefreshing(false);
           }
         });
-    }, 200);
+    }, UI_TIMING_MS.catalogueDebounce);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
   }, [filters, revision, spaceId, activeSpaceId]);
   async function more() {
-    if (!cursor || loadingMore || loading) {
+    if (!cursor || loadingMore || loading || refreshing || moreRequest.current) {
       return;
     }
     const current = generation.current;
+    const controller = new AbortController();
+    moreRequest.current = controller;
     setLoadingMore(true);
+    setMoreError('');
     try {
-      const data = await catalogueApi.list({ ...filters, cursor });
-      if (current === generation.current) {
-        setItems(items => [...items, ...data.items]);
+      const data = await catalogueApi.list({ ...filters, cursor }, controller.signal);
+      if (!controller.signal.aborted && current === generation.current) {
+        setScrollAnchor(captureCatalogueScroll());
+        setItems(items => {
+          const merged = [
+            ...new Map([...items, ...data.items].map(item => [item.id, item])).values(),
+          ];
+          loadedCount.current = merged.length;
+          return merged;
+        });
+        setTotal(data.total);
         setCursor(data.nextCursor);
       }
     } catch (error) {
-      if (current === generation.current) {
-        setError(errorMessage(error));
+      if (!controller.signal.aborted && current === generation.current) {
+        setMoreError(errorMessage(error));
       }
     } finally {
+      if (moreRequest.current === controller) {
+        moreRequest.current = null;
+      }
       if (current === generation.current) {
         setLoadingMore(false);
       }
     }
   }
+  useEffect(() => () => moreRequest.current?.abort(), []);
   useEffect(() => {
     if (!items.some(i => i.metadataStatus === 'pending' || i.metadataStatus === 'processing')) {
       return;
     }
-    const timer = setTimeout(refresh, 5000);
+    const timer = setTimeout(refresh, UI_TIMING_MS.metadataRefresh);
     return () => clearTimeout(timer);
   }, [items, refresh]);
   return {
+    total,
+    searchScopeLimit,
+    refreshing,
+    moreError,
+    refreshError,
+    scrollAnchor,
     isAdmin,
     statuses,
     spaces,
@@ -187,6 +259,8 @@ export function useCatalogue() {
     spaceSwitchNotice,
     dismissSpaceSwitch: () => setSpaceSwitchNotice(''),
     updateSpaceTheme,
+    updateSpaceName,
+    removeSpaceLocally,
     activeSpace,
     canEdit,
     loadSpaces,

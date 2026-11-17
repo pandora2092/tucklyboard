@@ -8,6 +8,8 @@ import { Button } from './Button';
 
 export function Dialog({
   title,
+  subtitle,
+  scrollBody = false,
   children,
   onClose,
   busy = false,
@@ -20,6 +22,8 @@ export function Dialog({
   onEscape,
 }: {
   title: ReactNode;
+  subtitle?: ReactNode;
+  scrollBody?: boolean;
   children: ReactNode;
   onClose: () => void;
   busy?: boolean;
@@ -48,6 +52,23 @@ export function Dialog({
       }
     };
   }, []);
+  const header = (
+    <>
+      <div className={'dialog-top'}>
+        <div>
+          {eyebrow}
+          <h2 id={titleId}>{title}</h2>
+        </div>
+        <div className={'dialog-header-actions'}>
+          {headerActions}
+          <Button ref={close} disabled={busy} aria-label={closeLabel} onClick={onClose}>
+            ×
+          </Button>
+        </div>
+      </div>
+      {subtitle && <div className={'dialog-subtitle'}>{subtitle}</div>}
+    </>
+  );
   return (
     <div
       className={'overlay'}
@@ -87,25 +108,25 @@ export function Dialog({
     >
       <section
         ref={root}
-        className={['dialog', className].filter(Boolean).join(' ')}
+        className={['dialog', className, scrollBody && 'dialog-contained-scroll']
+          .filter(Boolean)
+          .join(' ')}
         role={'dialog'}
         aria-modal={'true'}
         aria-label={label}
         aria-labelledby={label ? undefined : titleId}
       >
-        <div className={'dialog-top'}>
-          <div>
-            {eyebrow}
-            <h2 id={titleId}>{title}</h2>
-          </div>
-          <div className={'dialog-header-actions'}>
-            {headerActions}
-            <Button ref={close} disabled={busy} aria-label={closeLabel} onClick={onClose}>
-              ×
-            </Button>
-          </div>
-        </div>
-        {children}
+        {scrollBody ? (
+          <>
+            <div className={'dialog-fixed-header'}>{header}</div>
+            <div className={'dialog-scroll-content'}>{children}</div>
+          </>
+        ) : (
+          <>
+            {header}
+            {children}
+          </>
+        )}
       </section>
     </div>
   );

@@ -400,11 +400,17 @@ try {
   assert.equal(enriched.text, 'Private note');
   assert.equal(enriched.sourceDescription, 'Learn TypeScript programming');
   assert.ok(enriched.autoTags.includes('программирование'));
+  const automaticallyTagged = ItemListSchema.parse(
+    await (await request('items')).json(),
+  ).items.find(item => item.id === canonical.id);
+  assert.ok(automaticallyTagged.tags.includes('программирование'));
+  const editedTags = [...automaticallyTagged.tags.filter(tag => tag !== 'программирование'), 'моё'];
+
   assert.equal(
     (
       await request(`items/${canonical.id}`, 'PATCH', {
         title: 'My custom title',
-        dismissedAutoTags: ['программирование'],
+        tags: editedTags,
       })
     ).status,
     200,
@@ -414,6 +420,17 @@ try {
   enriched = await db.item.findUniqueOrThrow({ where: { id: canonical.id } });
   assert.equal(enriched.title, 'My custom title');
   assert.ok(enriched.dismissedAutoTags.includes('программирование'));
+  const afterTagEdit = ItemListSchema.parse(await (await request('items')).json()).items.find(
+    item => item.id === canonical.id,
+  );
+  assert.ok(!afterTagEdit.tags.includes('программирование'));
+  assert.ok(afterTagEdit.tags.includes('моё'));
+  assert.ok(
+    !(
+      await (await request('items?tag=' + encodeURIComponent('программирование'))).json()
+    ).items.some(item => item.id === canonical.id),
+  );
+
   const failure = new EnrichmentService(
     db,
     {
@@ -1017,8 +1034,201 @@ try {
       .status,
     201,
   );
+  // Collection and space management must preserve bookmarks and enforce roles.
+  const managedSpace = await (
+    await request('spaces', 'POST', { name: 'Managed test space' })
+  ).json();
+  const otherUser = await db.user.findUniqueOrThrow({ where: { telegramId: String(id + 1) } });
+  const folderA = await (
+    await request('collections', 'POST', { name: 'Folder A', spaceId: managedSpace.id })
+  ).json();
+  const folderB = await (
+    await request('collections', 'POST', { name: 'Folder B', spaceId: managedSpace.id })
+  ).json();
+  const smartFolder = await (
+    await request('collections', 'POST', {
+      name: 'Smart folder',
+      spaceId: managedSpace.id,
+      rules: { type: 'text' },
+    })
+  ).json();
+  const managedNote = await (
+    await request('items', 'POST', {
+      type: 'text',
+      title: 'Managed note',
+      text: 'A note',
+      spaceId: managedSpace.id,
+      collectionIds: [folderA.id, folderB.id],
+    })
+  ).json();
+  assert.equal(
+    (await request(`collections/${folderA.id}`, 'PATCH', { name: 'Renamed folder' }, id + 1))
+      .status,
+    404,
+  );
+  assert.equal(
+    (await request(`collections/${folderA.id}`, 'DELETE', undefined, id + 1)).status,
+    404,
+  );
+  assert.equal(
+    (await request(`spaces/${managedSpace.id}`, 'DELETE', undefined, id + 1)).status,
+    404,
+  );
+  await db.spaceMember.create({
+    data: { spaceId: managedSpace.id, userId: otherUser.id, role: 'viewer' },
+  });
+  assert.equal(
+    (await request(`collections/${folderA.id}`, 'PATCH', { name: 'Renamed folder' }, id + 1))
+      .status,
+    403,
+  );
+  assert.equal(
+    (await request(`collections/${folderA.id}`, 'DELETE', undefined, id + 1)).status,
+    403,
+  );
+  assert.equal(
+    (await request(`spaces/${managedSpace.id}`, 'PATCH', { name: 'Forbidden' }, id + 1)).status,
+    403,
+  );
+  assert.equal(
+    (await request(`spaces/${managedSpace.id}`, 'DELETE', undefined, id + 1)).status,
+    403,
+  );
+  await db.spaceMember.update({
+    where: { spaceId_userId: { spaceId: managedSpace.id, userId: otherUser.id } },
+    data: { role: 'editor' },
+  });
+  assert.equal(
+    (await request(`collections/${folderA.id}`, 'PATCH', { name: 'Renamed folder' }, id + 1))
+      .status,
+    200,
+  );
+  assert.equal(
+    (await request(`collections/${folderA.id}`, 'PATCH', { name: folderB.name })).status,
+    400,
+  );
+  assert.equal(
+    (await request(`collections/${folderA.id}`, 'PATCH', { rules: { type: 'link' } })).status,
+    400,
+  );
+  assert.equal(
+    (
+      await request(
+        `collections/${smartFolder.id}`,
+        'PATCH',
+        { name: 'Renamed smart', rules: { type: 'link' } },
+        id + 1,
+      )
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await db.collection.findUniqueOrThrow({ where: { id: smartFolder.id } })).rules.type,
+    'link',
+  );
+  assert.equal(
+    (await request(`spaces/${managedSpace.id}`, 'PATCH', { name: 'Forbidden' }, id + 1)).status,
+    403,
+  );
+  assert.equal(
+    (await request(`spaces/${managedSpace.id}`, 'DELETE', undefined, id + 1)).status,
+    403,
+  );
+  assert.equal(
+    (await request(`collections/${folderA.id}`, 'DELETE', undefined, id + 1)).status,
+    200,
+  );
+  const retainedNote = await db.item.findUniqueOrThrow({
+    where: { id: managedNote.id },
+    include: { collections: true },
+  });
+  assert.deepEqual(
+    retainedNote.collections.map(entry => entry.collectionId),
+    [folderB.id],
+  );
+  assert.equal((await request(`collections/${folderB.id}`, 'DELETE')).status, 200);
+  const inboxPage = ItemListSchema.parse(
+    await (await request(`items?spaceId=${managedSpace.id}&collection=inbox`)).json(),
+  );
+  assert.ok(inboxPage.items.some(item => item.id === managedNote.id));
+  assert.equal(
+    (await request(`spaces/${managedSpace.id}`, 'PATCH', { name: '  Renamed space  ' })).status,
+    200,
+  );
+  assert.equal(
+    (await db.space.findUniqueOrThrow({ where: { id: managedSpace.id } })).name,
+    'Renamed space',
+  );
+  const personalId = await db.ensurePersonalSpace(me.id);
+  const preservedCount = await db.item.count({ where: { spaceId: personalId } });
+  assert.equal((await request(`spaces/${personalId}`, 'DELETE')).status, 400);
+  assert.equal(
+    (await request(`spaces/${personalId}`, 'PATCH', { name: 'Personal renamed' })).status,
+    200,
+  );
+  const managedInvite = await (
+    await request(`spaces/${managedSpace.id}/invites`, 'POST', { role: 'viewer', days: 1 })
+  ).json();
+  assert.ok(managedInvite.token);
+  assert.equal((await request(`spaces/${managedSpace.id}`, 'DELETE')).status, 200);
+  assert.equal(await db.space.count({ where: { id: managedSpace.id } }), 0);
+  assert.equal(await db.item.count({ where: { spaceId: managedSpace.id } }), 0);
+  assert.equal(await db.collection.count({ where: { spaceId: managedSpace.id } }), 0);
+  assert.equal(await db.spaceMember.count({ where: { spaceId: managedSpace.id } }), 0);
+  assert.equal(await db.spaceInvite.count({ where: { spaceId: managedSpace.id } }), 0);
+  assert.equal(await db.bookmarkStatus.count({ where: { spaceId: managedSpace.id } }), 0);
+  assert.equal(await db.item.count({ where: { spaceId: personalId } }), preservedCount);
+  assert.equal(
+    (await request(`items?spaceId=${managedSpace.id}`, 'GET', undefined, id + 1)).status,
+    404,
+  );
+  assert.equal((await request(`invites/${managedInvite.token}`)).status, 404);
+  // Pagination totals describe the complete filtered set, independent of page size.
+  const pageTag = `pagination-${id}`;
+  const personalSpace = await db.ensurePersonalSpace(me.id);
+  await db.item.createMany({
+    data: Array.from({ length: 125 }, (_, index) => ({
+      userId: me.id,
+      spaceId: personalSpace,
+      type: 'text',
+      title: `Pagination entry ${index}`,
+      text: 'Pagination fixture',
+      tags: [pageTag],
+      status: 'done',
+      metadataStatus: 'ready',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+    })),
+  });
+  const pages = [];
+  let pageCursor = null;
+  do {
+    const params = new URLSearchParams({ tag: pageTag });
+    if (pageCursor) {
+      params.set('cursor', pageCursor);
+    }
+    const response = await request(`items?${params}`);
+    assert.equal(response.status, 200);
+    const page = ItemListSchema.parse(await response.json());
+    assert.equal(page.total, 125);
+    pages.push(page);
+    pageCursor = page.nextCursor;
+  } while (pageCursor);
+  assert.deepEqual(
+    pages.map(page => page.items.length),
+    [40, 40, 40, 5],
+  );
+  assert.equal(new Set(pages.flatMap(page => page.items.map(item => item.id))).size, 125);
+  const noLinks = ItemListSchema.parse(
+    await (await request(`items?tag=${pageTag}&type=link`)).json(),
+  );
+  assert.equal(noLinks.total, 0);
+  assert.equal(noLinks.nextCursor, null);
+  assert.equal(
+    (await (await request(`items?tag=${pageTag}`, 'GET', undefined, id + 1)).json()).total,
+    0,
+  );
   console.info(
-    'Integration passed: CRUD, canonical dedup/concurrency, multiple and smart collections, bulk actions, metadata preservation, topic search, shared spaces, custom status permissions/defaults/reorder/atomic replacement, roles/invites/revocation, Telegram ingestion, private previews, upload/resend and migration restart (external APIs mocked).',
+    'Integration passed: collection/space management and deletion permissions, pagination and exact filtered totals, CRUD, canonical dedup/concurrency, multiple and smart collections, bulk actions, metadata preservation, topic search, shared spaces, custom status permissions/defaults/reorder/atomic replacement, roles/invites/revocation, Telegram ingestion, private previews, upload/resend and migration restart (external APIs mocked).',
   );
 } catch (error) {
   await setTimeout(50);

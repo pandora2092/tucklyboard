@@ -2,6 +2,8 @@ import './item-card.css';
 
 import type { Item } from '@tuckly/contracts';
 
+import { useLongPress } from '../lib/use-long-press';
+
 import { MediaPreview } from './MediaPreview';
 import { Button } from './ui/Button';
 
@@ -9,16 +11,40 @@ export function ItemCard({
   item: i,
   onOpen,
   onTag,
+  onCopyLink,
 }: {
   item: Item;
   onOpen: (item: Item) => void;
   onTag: (tag: string) => void;
+  onCopyLink: (url: string) => void;
 }) {
+  const longPress = useLongPress(Boolean(i.url), () => {
+    if (i.url) {
+      onCopyLink(i.url);
+    }
+  });
   return (
     <article
-      onClick={() => onOpen(i)}
+      className={`item-${i.type}`}
+      {...longPress.handlers}
+      data-copy-ready={longPress.ready || undefined}
+      onClick={() => {
+        if (!longPress.consumeClick()) {
+          onOpen(i);
+        }
+      }}
       tabIndex={0}
-      onKeyDown={e => e.key === 'Enter' && e.target === e.currentTarget && onOpen(i)}
+      onKeyDown={e => {
+        if (e.target !== e.currentTarget) {
+          return;
+        }
+        if (i.url && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+          e.preventDefault();
+          onCopyLink(i.url);
+        } else if (e.key === 'Enter') {
+          onOpen(i);
+        }
+      }}
     >
       <div className={`preview ${i.type}`}>
         <MediaPreview item={i} />
@@ -38,11 +64,9 @@ export function ItemCard({
       <div className={'card-body'}>
         <small className={'source'}>{i.source || i.collection?.name || 'Сохранено вами'}</small>
         <h3>{i.title}</h3>
-        {(i.tags.length > 0 || i.autoTags.length > 0) && (
+        {i.tags.length > 0 && (
           <div className={'tags'}>
-            {[
-              ...new Set([...i.tags, ...i.autoTags.filter(t => !i.dismissedAutoTags.includes(t))]),
-            ].map(t => (
+            {i.tags.map(t => (
               <Button
                 key={t}
                 onClick={e => {

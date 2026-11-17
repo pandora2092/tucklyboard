@@ -84,7 +84,10 @@ export class SpacesController {
     @Param('id') id: string,
     @Body() body: unknown,
   ) {
-    return this.spaces.updateTheme(user, id, parse(UpdateSpaceSchema, body).theme);
+    return this.spaces.update(user, id, parse(UpdateSpaceSchema, body));
+  }
+  @Delete('spaces/:id') deleteSpace(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.spaces.remove(user, id);
   }
   @Get('spaces/:id/members') members(@CurrentUser() user: User, @Param('id') id: string) {
     return this.spaces.members(user, id);

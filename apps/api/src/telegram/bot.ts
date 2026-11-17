@@ -107,7 +107,7 @@ export function createBot(db: Store, token: string) {
               inline_keyboard: [
                 [
                   {
-                    text: COPY.openApp,
+                    text: COPY.bot.openCollection,
                     web_app: {
                       url: (() => {
                         const url = new URL(process.env.MINI_APP_URL!);
@@ -131,13 +131,9 @@ export function createBot(db: Store, token: string) {
     }
     try {
       const item = await saveIncoming(db, ctx.message, ctx.from);
-      await ctx.reply(
-        item
-          ? 'Сохранено во входящие ✓'
-          : 'Пришлите ссылку, текст, фото или видео. Другие файлы пока не поддерживаются.',
-      );
+      await ctx.reply(item ? COPY.bot.saved : COPY.bot.unsupported);
     } catch {
-      await ctx.reply('Не удалось сохранить карточку. Попробуйте ещё раз.');
+      await ctx.reply(COPY.bot.saveError);
     }
   });
   bot.catch(() => console.error('Telegram update failed'));

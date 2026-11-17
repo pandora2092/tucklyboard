@@ -107,6 +107,7 @@ export function StatusManager({
   }
   return (
     <section
+      className={'settings-block'}
       aria-label={'Статусы закладок'}
       onKeyDown={event => {
         if (event.key === 'Escape' && !busy && (editing || deleting)) {
@@ -335,14 +336,15 @@ export function StatusManager({
                 onChange={e => setColor(e.target.value)}
               />
             </Field>
-          </div>
-          <div className={'dialog-actions'}>
             <Button
+              className={'status-add-button'}
               type={'submit'}
               variant={'primary'}
+              aria-label={busy ? COPY.actions.saving : 'Добавить статус'}
+              title={'Добавить статус'}
               disabled={busy || !name.trim() || statuses.length >= 30}
             >
-              {busy ? COPY.actions.saving : 'Добавить статус'}
+              {busy ? '…' : '＋'}
             </Button>
           </div>
         </form>

@@ -1,0 +1,122 @@
+.settings-blocks {
+  display: grid;
+  gap: var(--spacing-5);
+}
+
+.settings-block {
+  min-width: 0;
+  padding: var(--spacing-4);
+  background: var(--space-surface);
+  border: 1px solid var(--space-border);
+  border-radius: var(--radius-panel);
+}
+
+.settings-block > .settings-heading,
+.settings-space-form > .settings-heading {
+  padding-bottom: var(--spacing-3);
+  margin-top: 0;
+  border-bottom: 1px solid var(--space-border);
+}
+
+.settings-space-delete {
+  padding-top: var(--spacing-4);
+  margin-top: var(--spacing-4);
+  border-top: 1px dashed var(--space-border);
+}
+
+.dialog .collection-editor-fields {
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+.settings-management-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+  align-items: center;
+}
+
+.settings-management-actions button,
+.settings-space-delete > .settings-danger {
+  min-height: var(--control-height-compact);
+  padding: var(--spacing-2) var(--spacing-3);
+  font-size: 12px;
+  background: var(--space-soft);
+  border: 1px solid var(--space-border);
+  border-radius: var(--radius-control);
+}
+
+.settings-management-actions .primary {
+  color: #fff;
+  background: var(--space-accent);
+}
+
+.settings-management-actions .settings-danger,
+.settings-space-delete > .settings-danger {
+  color: #914f40;
+  background: #f8e9e3;
+}
+
+.settings-management-actions .settings-delete-confirm {
+  color: #fff;
+  background: #a34036;
+  border-color: #a34036;
+}
+
+.settings-collection-list {
+  max-height: min(360px, 45dvh);
+  padding: 0;
+  margin: var(--spacing-3) 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+.settings-collection-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-3);
+  align-items: center;
+  padding: var(--spacing-3);
+  margin-bottom: var(--spacing-2);
+  background: var(--space-surface);
+  border: 1px solid var(--space-border);
+  border-radius: var(--radius-panel);
+}
+
+.settings-collection-summary {
+  flex: 1;
+  min-width: 120px;
+  overflow-wrap: anywhere;
+}
+
+.settings-collection-summary b {
+  font-size: 13px;
+}
+
+.settings-collection-summary small {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--space-muted);
+}
+
+.settings-delete-panel {
+  padding: var(--spacing-4);
+  margin-top: var(--spacing-4);
+  background: #f8eee8;
+  border-radius: var(--radius-panel);
+}
+
+.settings-delete-panel h4 {
+  margin: 0 0 var(--spacing-3);
+  overflow-wrap: anywhere;
+}
+
+.settings-delete-panel p {
+  font-size: 12px;
+  line-height: 1.8;
+}

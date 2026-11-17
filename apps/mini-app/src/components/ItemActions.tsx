@@ -10,9 +10,11 @@ import './item-actions.css';
 
 export function ItemActions({
   onCopy,
+  onDelete,
   disabled = false,
 }: {
   onCopy: () => void;
+  onDelete?: () => void;
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -108,6 +110,18 @@ export function ItemActions({
             >
               {COPY.itemActions.copyToSpace}
             </Button>
+            {onDelete && (
+              <Button
+                type={'button'}
+                className={'item-actions-delete'}
+                onClick={() => {
+                  setOpen(false);
+                  onDelete();
+                }}
+              >
+                {COPY.itemActions.delete}
+              </Button>
+            )}
           </div>,
           document.body,
         )}

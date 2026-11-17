@@ -1,0 +1,342 @@
+.brand-mark {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 1em;
+  height: 1em;
+  vertical-align: middle;
+}
+
+.heading h1 {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  font-family: Lora, Georgia, serif;
+  font-size: clamp(27px, 3vw, 38px);
+  font-weight: 500;
+  letter-spacing: -1.2px;
+}
+
+.heading-title {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  min-width: 0;
+}
+
+.heading-title > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.app .heading {
+  gap: 16px;
+  background-image: radial-gradient(ellipse at 90% 20%, var(--space-soft), transparent 65%);
+}
+
+.app {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--space-border) 25%, transparent) 0.45px,
+    transparent 0.6px
+  );
+  background-size: 7px 7px;
+}
+
+.app .library-sidebar {
+  background-image: radial-gradient(ellipse at 0 100%, var(--space-background), transparent 65%);
+}
+
+.app,
+.app .library-sidebar,
+.app .library-header,
+.app .preview,
+.app .primary,
+.app .nav {
+  transition:
+    background-color 280ms ease,
+    border-color 280ms ease,
+    color 280ms ease;
+}
+
+.aside-bottom > .brand-mark {
+  font-size: 32px;
+}
+
+.empty-icon > .brand-mark {
+  font-size: 52px;
+  color: var(--space-accent);
+  transform: rotate(-10deg);
+}
+
+.empty h2 {
+  font-family: Lora, Georgia, serif;
+  font-weight: 500;
+}
+
+.collection-cover {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 88px;
+  width: 88px;
+  height: 100px;
+  overflow: hidden;
+  color: var(--space-accent);
+  background: var(--space-soft);
+  border: 1px solid var(--space-border);
+  border-radius: 5px 12px 12px 5px;
+  box-shadow:
+    inset 5px 0 0 var(--space-border),
+    3px 4px 0 var(--space-soft);
+}
+
+.cover-sheet {
+  position: absolute;
+  inset: 22% 15% 16% 24%;
+  background: var(--space-surface);
+  border: 1px solid var(--space-border);
+  border-radius: 2px;
+  transform: rotate(-13deg);
+}
+
+.cover-orbit {
+  position: absolute;
+  top: -18%;
+  right: -30%;
+  width: 90%;
+  height: 80%;
+  border: 1px solid currentcolor;
+  border-radius: 50%;
+  opacity: 0.3;
+}
+
+.collection-cover > .brand-mark {
+  position: absolute;
+  top: 32%;
+  left: 31%;
+  width: 45%;
+  height: 45%;
+  transform: rotate(12deg);
+}
+
+.cover-1 .cover-sheet {
+  transform: rotate(12deg);
+}
+
+.cover-1 .cover-orbit {
+  top: 55%;
+  right: 30%;
+}
+
+.cover-2 .cover-sheet {
+  inset: 15% 24% 24% 15%;
+  transform: rotate(-5deg);
+}
+
+.cover-2 > .brand-mark {
+  top: 42%;
+  left: 42%;
+  transform: rotate(35deg);
+}
+
+.nav > .collection-cover.compact {
+  flex-basis: 26px;
+  width: 26px;
+  height: 30px;
+  font-size: inherit;
+  border-radius: 2px 5px 5px 2px;
+  box-shadow: inset 2px 0 0 var(--space-border);
+}
+
+.cards .item-text .preview {
+  justify-content: flex-start;
+  background-image: repeating-linear-gradient(
+    transparent 0 27px,
+    color-mix(in srgb, var(--space-border) 45%, transparent) 27px 28px
+  );
+  background-position: 0 18px;
+}
+
+.item-text .preview::before {
+  position: absolute;
+  inset: 0 auto 0 14px;
+  width: 1px;
+  content: '';
+  background: var(--space-border);
+  opacity: 0.55;
+}
+
+.item-text .preview-symbol {
+  display: none;
+}
+
+.item-text .preview p {
+  margin-top: 9px;
+  -webkit-line-clamp: 3;
+  font-family: Lora, Georgia, serif;
+  font-size: 16px;
+  line-height: 28px;
+}
+
+.cards .item-photo .preview {
+  margin: 10px 10px 0;
+  background: var(--space-soft);
+  border-radius: 4px;
+}
+
+.item-photo .preview img {
+  border: 5px solid var(--space-surface);
+  border-bottom-width: 14px;
+}
+
+.item-link .preview::before {
+  position: absolute;
+  top: -55px;
+  right: -25px;
+  width: 170px;
+  height: 170px;
+  pointer-events: none;
+  content: '';
+  border: 1px solid var(--space-border);
+  border-radius: 50%;
+}
+
+.item-link .media-placeholder p {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.item-video .preview-symbol {
+  display: inline-grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  font-size: 27px;
+  border: 1px solid var(--space-border);
+  border-radius: 50%;
+}
+
+.cards article {
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease,
+    background-color 280ms ease,
+    border-color 280ms ease;
+  animation: album-arrive 320ms ease both;
+}
+
+.cards article:hover {
+  box-shadow: 0 8px 25px #30392f0b;
+  transform: translateY(-3px);
+}
+
+.cards.list .item-photo .preview {
+  width: 150px;
+  height: 150px;
+  margin: 10px;
+}
+
+.save-notice-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 29;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--space-background) 20%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+.save-notice {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 30;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  padding: 14px 18px;
+  font-size: 13px;
+  color: var(--space-text);
+  background: var(--space-surface);
+  border: 1px solid var(--space-border);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px #30392f18;
+  translate: -50% -50%;
+  animation: album-arrive 250ms ease both;
+}
+
+.save-notice > .brand-mark {
+  font-size: 30px;
+  color: var(--space-accent);
+  animation: flower-unfold 550ms ease both;
+}
+
+.save-notice > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.save-notice button {
+  flex-shrink: 0;
+  min-width: 30px;
+  min-height: 30px;
+  font-size: 22px;
+}
+
+@keyframes album-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes flower-unfold {
+  from {
+    transform: rotate(-65deg) scale(0.4);
+  }
+
+  to {
+    transform: rotate(0) scale(1);
+  }
+}
+
+@media (width <= 700px) {
+  .heading-title {
+    gap: 12px;
+  }
+
+  .heading-title > .collection-cover {
+    flex-basis: 48px;
+    width: 48px;
+    height: 62px;
+  }
+
+  .heading .counter {
+    flex-shrink: 0;
+    align-self: flex-start;
+  }
+
+  .item-text .preview p {
+    -webkit-line-clamp: 2;
+    font-size: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app *,
+  .app *::before,
+  .app *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .cards article:hover {
+    transform: none;
+  }
+}

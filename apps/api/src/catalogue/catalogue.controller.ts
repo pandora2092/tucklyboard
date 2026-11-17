@@ -29,6 +29,7 @@ import {
   ItemDetailsSchema,
   ItemQuerySchema,
   MEDIA_MIMES,
+  UpdateCollectionSchema,
   UpdateItemSchema,
   UPLOAD_LIMIT,
 } from '@tuckly/contracts';
@@ -49,6 +50,16 @@ export class CatalogueController {
   @Post('collections') collection(@CurrentUser() user: User, @Body() body: unknown) {
     const data = parse(CreateCollectionSchema, body);
     return this.catalogue.createCollection(user, data.name, data.spaceId, data.rules);
+  }
+  @Patch('collections/:id') collectionUpdate(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    return this.catalogue.updateCollection(user, id, parse(UpdateCollectionSchema, body));
+  }
+  @Delete('collections/:id') collectionDelete(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.catalogue.removeCollection(user, id);
   }
   @Get('items') items(@CurrentUser() user: User, @Query() query: unknown) {
     return this.catalogue.list(user, parse(ItemQuerySchema, query));

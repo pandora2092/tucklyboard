@@ -1,0 +1,1 @@
+export const LONG_PRESS_MOVE_TOLERANCE_PX = 12;

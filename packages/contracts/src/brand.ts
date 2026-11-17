@@ -2,7 +2,9 @@
 // Package names and existing storage identifiers are configured separately.
 export const BRAND = {
   name: 'tuckly',
+  descriptor: 'закладки',
   domain: 'tucklyboard.ru',
+  tagline: 'Своё место для находок',
 } as const;
 
 export const COPY = {
@@ -121,9 +123,23 @@ export const COPY = {
     done: 'Готово',
     openItem: 'Открыть карточку',
   },
+  collectionPicker: {
+    title: 'Коллекции',
+    inbox: 'Входящие',
+    search: 'Найти коллекцию',
+    noResults: 'Коллекции не найдены. Попробуйте другое название.',
+    empty: 'Пока нет обычных коллекций. Находка останется во входящих.',
+  },
   itemActions: {
     label: 'Действия с карточкой',
     copyToSpace: 'Копировать в другое пространство',
+    delete: 'Удалить карточку',
+    linkCopied: 'Ссылка скопирована',
+    copyLinkFailed: 'Не удалось скопировать ссылку',
+    deleteHeading: 'Удалить карточку?',
+    deleteDescription:
+      'Карточка исчезнет из библиотеки и всех коллекций. Исходные сообщения и файлы в Telegram останутся.',
+    deleting: 'Удаляем…',
   },
   copyItem: {
     heading: 'Копировать находку',
@@ -146,13 +162,27 @@ export const COPY = {
       'В карточке есть несохранённые правки. Сначала сохраним их, затем выберем пространство для копии.',
     saveAndContinue: 'Сохранить и перейти к копированию',
   },
-  pageTitle: `${BRAND.name} · своё место`,
+  pageTitle: `${BRAND.name} · ${BRAND.descriptor}`,
   adminHeading: `Управление ${BRAND.name}`,
   backToApp: `Вернуться в ${BRAND.name}`,
   adminOnly: `Доступ разрешён только администраторам ${BRAND.name}`,
   adminLogin: `Войти в админку ${BRAND.name} через Telegram`,
   openApp: `Открыть ${BRAND.name}`,
   openBot: `Откройте бота ${BRAND.name}, отправьте`,
-  welcome: `Присылайте ссылки, текст, фото и видео. Файлы останутся в Telegram, а коллекции и теги — в ${BRAND.name}.`,
+  bot: {
+    name: `${BRAND.name} · ${BRAND.descriptor}`,
+    shortDescription:
+      'Своё место для находок. Сохраняйте ссылки, мысли, фото и видео в личные коллекции.',
+    description:
+      'Хорошие находки заслуживают своего места.\n\nПрисылайте ссылки, мысли, фото и видео — tuckly соберёт их в одном месте. Откройте приложение, чтобы разложить находки по коллекциям и вернуться к ним позже.\n\nНачните с любой находки: просто отправьте её в этот чат.',
+    menuButton: 'Мои находки',
+    openCollection: 'Открыть коллекцию',
+    saved: 'Сохранено во входящие ✓',
+    unsupported:
+      'Пришлите ссылку, мысль, фото или видео — сохраним в вашу коллекцию. Другие файлы пока не поддерживаются.',
+    saveError: 'Не удалось сохранить находку. Попробуйте ещё раз.',
+    startCommand: 'Начать собирать находки',
+  },
+  welcome: `${BRAND.name} — ${BRAND.tagline.toLowerCase()}.\n\nОтправьте сюда ссылку, мысль, фото или видео — всё попадёт во входящие. В приложении можно собрать коллекции, добавить теги и найти сохранённое.\n\nФайлы останутся в Telegram, а порядок в находках — в ${BRAND.name}.`,
   previewUserAgent: `${BRAND.name}-LinkPreview/1.0`,
 } as const;

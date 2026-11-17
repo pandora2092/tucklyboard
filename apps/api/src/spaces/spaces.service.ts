@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import type { User } from '@prisma/client';
 
-import { DEFAULT_STATUSES, type SpaceRole, type SpaceTheme } from '@tuckly/contracts';
+import { DEFAULT_STATUSES, type SpaceRole, type UpdateSpace } from '@tuckly/contracts';
 
 import { Store } from '../database/database.service';
 import { TelegramMedia } from '../telegram/telegram-media.service';
@@ -69,9 +69,21 @@ export class SpacesService {
       memberCount: 1,
     };
   }
-  async updateTheme(user: User, id: string, theme: SpaceTheme) {
+  async update(user: User, id: string, data: UpdateSpace) {
     await this.access(user, id, false, true);
-    await this.db.space.update({ where: { id }, data: { theme } });
+    await this.db.space.update({ where: { id }, data });
+    return { ok: true };
+  }
+  async remove(user: User, id: string) {
+    const access = await this.access(user, id, false, true);
+    if (access.space.personalUserId) {
+      throw new BadRequestException('Личное пространство нельзя удалить');
+    }
+    await this.db.$transaction(async tx => {
+      await tx.item.deleteMany({ where: { spaceId: id } });
+      await tx.collection.deleteMany({ where: { spaceId: id } });
+      await tx.space.delete({ where: { id } });
+    });
     return { ok: true };
   }
   async members(user: User, id: string) {

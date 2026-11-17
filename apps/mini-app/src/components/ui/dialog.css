@@ -119,13 +119,6 @@ fieldset {
   border: 0;
 }
 
-.collection-picker legend {
-  padding: 0;
-  margin-bottom: 7px;
-  font-size: 11px;
-  color: var(--space-muted);
-}
-
 .dialog .collection-option {
   flex-direction: row;
   gap: 10px;
@@ -155,7 +148,45 @@ fieldset {
   overflow-wrap: anywhere;
 }
 
-.collection-picker:disabled .collection-option {
-  cursor: default;
-  opacity: 0.7;
+.dialog.dialog-contained-scroll {
+  --dialog-content-padding: 25px;
+
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.dialog-fixed-header {
+  flex-shrink: 0;
+  padding: var(--dialog-content-padding);
+  padding-bottom: var(--spacing-4);
+  background: var(--space-background);
+  border-bottom: 1px solid var(--space-border);
+}
+
+.dialog-fixed-header .dialog-top {
+  margin-bottom: 0;
+}
+
+.dialog-subtitle {
+  margin-top: var(--spacing-2);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--space-muted);
+  overflow-wrap: anywhere;
+}
+
+.dialog-scroll-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--spacing-5) var(--dialog-content-padding) var(--dialog-content-padding);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+@media (width <= 700px) {
+  .dialog.dialog-contained-scroll {
+    --dialog-content-padding: var(--spacing-5);
+  }
 }

@@ -1,0 +1,40 @@
+.cards.catalogue-results {
+  position: relative;
+  display: block;
+  overflow-anchor: none;
+}
+
+.catalogue-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--cards-columns), minmax(0, 1fr));
+  gap: var(--cards-gap);
+  width: 100%;
+  padding-bottom: var(--cards-gap);
+}
+
+.cards.list .catalogue-row {
+  grid-template-columns: 1fr;
+}
+
+.cards.catalogue-results article {
+  animation: none;
+}
+
+.catalogue-search-note,
+.catalogue-more-error {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--space-muted);
+}
+
+.catalogue-more-error {
+  text-align: center;
+}
+
+.catalogue-more-error button {
+  color: var(--space-accent);
+  text-decoration: underline;
+}

@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { COPY, type Item } from '@tuckly/contracts';
 
 import { catalogueApi } from '../api/catalogue';
 import { ActionDialog } from '../components/ActionDialog';
+import { BrandMark } from '../components/BrandMark';
+import { DeleteItemDialog } from '../components/DeleteItemDialog';
 import { Sidebar } from '../components/Sidebar';
 import { Button } from '../components/ui/Button';
+import { UI_TIMING_MS } from '../constants/timing';
 import {
   BulkActionsBar,
   CollectionDialog,
@@ -21,8 +24,10 @@ import {
   useBulkActions,
   useCatalogue,
 } from '../features/catalogue';
+import { copyText } from '../lib/clipboard';
 
 import './space-theme.css';
+import './album.css';
 
 export function LibraryPage() {
   const catalogue = useCatalogue();
@@ -43,9 +48,23 @@ export function LibraryPage() {
     setQuery,
     setType,
     updateSpaceTheme,
+    updateSpaceName,
+    removeSpaceLocally,
   } = catalogue;
+  const [saveNotice, setSaveNotice] = useState({ message: '', version: 0 });
+  useEffect(() => {
+    if (!saveNotice.message) {
+      return;
+    }
+    const timer = setTimeout(
+      () => setSaveNotice(value => ({ ...value, message: '' })),
+      UI_TIMING_MS.saveNotice,
+    );
+    return () => clearTimeout(timer);
+  }, [saveNotice]);
   const [grid, setGrid] = useState(true);
   const [selected, setSelected] = useState<Item | null | undefined>(undefined);
+  const [deletingItem, setDeletingItem] = useState<Item | null>(null);
   const [copyItem, setCopyItem] = useState<Item | null>(null);
   const [collectionDialog, setCollectionDialog] = useState(false);
   const [settings, setSettings] = useState(false);
@@ -128,8 +147,32 @@ export function LibraryPage() {
           onOpen={open}
           onTag={catalogue.setTag}
           onCopy={setCopyItem}
+          onDelete={setDeletingItem}
+          onCopyLink={url => {
+            void copyText(url).then(copied =>
+              setSaveNotice(value => ({
+                message: copied ? COPY.itemActions.linkCopied : COPY.itemActions.copyLinkFailed,
+                version: value.version + 1,
+              })),
+            );
+          }}
         />
       </main>
+      {saveNotice.message && (
+        <>
+          <div className={'save-notice-backdrop'} aria-hidden={'true'} />
+          <div key={saveNotice.version} className={'save-notice'} role={'status'}>
+            <BrandMark />
+            <span>{saveNotice.message}</span>
+            <Button
+              aria-label={'Скрыть уведомление'}
+              onClick={() => setSaveNotice(value => ({ ...value, message: '' }))}
+            >
+              ×
+            </Button>
+          </div>
+        </>
+      )}
       {managing && activeSpace && (
         <SpacePanel
           space={activeSpace}
@@ -141,6 +184,22 @@ export function LibraryPage() {
         <SpaceSettingsDialog
           key={activeSpace.id}
           space={activeSpace}
+          collections={collections}
+          statuses={statuses}
+          onCollectionDeleted={id => {
+            if (collection === id) {
+              setCollection('');
+              selection.clear();
+            }
+            refresh();
+          }}
+          onSpaceRenamed={name => updateSpaceName(activeSpace.id, name)}
+          onSpaceDeleted={async () => {
+            setSettings(false);
+            selection.clear();
+            removeSpaceLocally(activeSpace.id);
+            await loadSpaces();
+          }}
           onClose={() => setSettings(false)}
           onChanged={refresh}
           onThemeChanged={theme => updateSpaceTheme(activeSpace.id, theme)}
@@ -179,13 +238,30 @@ export function LibraryPage() {
           collections={collections}
           telegramEnabled={telegramEnabled}
           onClose={() => setSelected(undefined)}
-          onSaved={() => {
+          onSaved={result => {
+            if (result !== 'deleted') {
+              setSaveNotice(value => ({
+                message: selected ? 'Изменения сохранены' : 'Находка в вашей коллекции',
+                version: value.version + 1,
+              }));
+            }
             setSelected(undefined);
             refresh();
           }}
           onCopy={item => {
             setSelected(undefined);
             setCopyItem(item);
+            refresh();
+          }}
+        />
+      )}
+      {deletingItem && (
+        <DeleteItemDialog
+          item={deletingItem}
+          onClose={() => setDeletingItem(null)}
+          onDeleted={() => {
+            selection.toggle(deletingItem.id, false);
+            setDeletingItem(null);
             refresh();
           }}
         />

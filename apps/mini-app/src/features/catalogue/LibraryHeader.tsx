@@ -1,5 +1,6 @@
-import { COPY } from '@tuckly/contracts';
+import { BRAND, COPY } from '@tuckly/contracts';
 
+import { BrandLogo } from '../../components/BrandLogo';
 import { Select } from '../../components/Select';
 import { Button } from '../../components/ui/Button';
 import { Icon } from '../../components/ui/Icon';
@@ -26,6 +27,9 @@ export function LibraryHeader({
   const { spaces, activeSpace, canEdit, loading, statuses, isAdmin } = data;
   return (
     <header className={'library-header'}>
+      <div className={'mobile-brand'} role={'img'} aria-label={BRAND.name}>
+        <BrandLogo />
+      </div>
       <div className={'space-picker'}>
         <Select
           aria-label={COPY.space.label}

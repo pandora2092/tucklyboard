@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { CreateItemSchema, ItemQuerySchema, ItemSchema, UpdateItemSchema } from './index';
+import {
+  CreateItemSchema,
+  ItemQuerySchema,
+  ItemSchema,
+  UpdateCollectionSchema,
+  UpdateItemSchema,
+} from './index';
 
 void test('create requires HTTP(S) link and refuses internal file references', () => {
   assert.equal(CreateItemSchema.safeParse({ type: 'link', title: 'Link' }).success, false);
@@ -57,4 +63,22 @@ void test('public item contract strips private references and rejects malformed 
   };
   assert.equal('telegramFileId' in ItemSchema.parse(data), false);
   assert.equal(ItemSchema.safeParse({ ...data, createdAt: 'not a date' }).success, false);
+});
+
+void test('collection edits require known fields and validate smart rules', () => {
+  assert.deepEqual(UpdateCollectionSchema.parse({ name: '  Идеи  ' }), { name: 'Идеи' });
+  for (const value of [
+    {},
+    { name: ' ' },
+    { rules: null },
+    { rules: { days: 0 } },
+    { spaceId: 'elsewhere', name: 'Идеи' },
+  ]) {
+    assert.equal(UpdateCollectionSchema.safeParse(value).success, false);
+  }
+  assert.equal(
+    UpdateCollectionSchema.safeParse({ rules: { type: 'link', tags: ['читать'], days: 30 } })
+      .success,
+    true,
+  );
 });
