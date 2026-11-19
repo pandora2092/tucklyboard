@@ -137,8 +137,8 @@ export class SpacesController {
   ) {
     return this.spaces.deleteInvite(user, id, inviteId);
   }
-  @Get('invites/:token') info(@Param('token') token: string) {
-    return this.spaces.inviteInfo(token);
+  @Get('invites/:token') info(@CurrentUser() user: User, @Param('token') token: string) {
+    return this.spaces.inviteInfo(user, token);
   }
   @Post('invites/:token/join') join(@CurrentUser() user: User, @Param('token') token: string) {
     return this.spaces.join(user, token);

@@ -10,7 +10,10 @@ import {
 
 import { adminApi } from '../api/admin';
 import { ApiError, errorMessage } from '../api/client';
+import { BrandLogo } from '../components/BrandLogo';
 import { Select } from '../components/Select';
+import { Button } from '../components/ui/Button';
+import { Dialog } from '../components/ui/Dialog';
 
 import '../admin.css';
 
@@ -37,16 +40,6 @@ function UserDetail({
 }) {
   const [data, setData] = useState<AdminUserDetail | null>(null);
   const [error, setError] = useState('');
-  const close = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    const previous = document.activeElement;
-    close.current?.focus();
-    return () => {
-      if (previous instanceof HTMLElement) {
-        previous.focus();
-      }
-    };
-  }, []);
   useEffect(() => {
     const controller = new AbortController();
     void adminApi
@@ -63,104 +56,85 @@ function UserDetail({
     return () => controller.abort();
   }, [id, onUnauthorized]);
   return (
-    <div
-      className={'overlay'}
-      onKeyDown={e => {
-        if (e.key === 'Escape') {
-          onClose();
-        }
-        if (e.key === 'Tab') {
-          e.preventDefault();
-          close.current?.focus();
-        }
-      }}
+    <Dialog
+      title={data?.user.name || 'Пользователь'}
+      className={'admin-detail'}
+      scrollBody
+      onClose={onClose}
     >
-      <section
-        className={'dialog admin-detail'}
-        role={'dialog'}
-        aria-modal={'true'}
-        aria-labelledby={'user-title'}
-      >
-        <div className={'dialog-top'}>
-          <h2 id={'user-title'}>{data?.user.name || 'Пользователь'}</h2>
-          <button ref={close} onClick={onClose} aria-label={COPY.actions.close}>
-            ×
-          </button>
-        </div>
-        {error ? (
-          <p className={'error'} role={'alert'}>
-            {error}
+      {error ? (
+        <p className={'error'} role={'alert'}>
+          {error}
+        </p>
+      ) : !data ? (
+        <p role={'status'}>Загружаем статистику…</p>
+      ) : (
+        <>
+          <p>
+            {data.user.username ? `@${data.user.username} · ` : ''}ID {data.user.telegramId}
           </p>
-        ) : !data ? (
-          <p role={'status'}>Загружаем статистику…</p>
-        ) : (
-          <>
-            <p>
-              {data.user.username ? `@${data.user.username} · ` : ''}ID {data.user.telegramId}
-            </p>
-            <dl className={'admin-facts'}>
-              <div>
-                <dt>Регистрация</dt>
-                <dd>{date(data.user.createdAt, true)}</dd>
-              </div>
-              <div>
-                <dt>Последняя активность</dt>
-                <dd>{date(data.user.lastSeenAt, true)}</dd>
-              </div>
-              <div>
-                <dt>Карточки сейчас</dt>
-                <dd>{data.user._count.items}</dd>
-              </div>
-              <div>
-                <dt>Коллекции сейчас</dt>
-                <dd>{data.user._count.collections}</dd>
-              </div>
-            </dl>
-            <h3>Сохранённые материалы</h3>
-            <div className={'admin-types'}>
-              {data.itemTypes.map(row => (
-                <span className={'counter'} key={row.type}>
-                  {(
-                    { link: 'Ссылки', photo: 'Фото', video: 'Видео', text: 'Заметки' } as Record<
-                      string,
-                      string
-                    >
-                  )[row.type] || row.type}
-                  : {row.count}
-                </span>
-              ))}
-              {!data.itemTypes.length && <p>Пока нет карточек.</p>}
+          <dl className={'admin-facts'}>
+            <div>
+              <dt>Регистрация</dt>
+              <dd>{date(data.user.createdAt, true)}</dd>
             </div>
-            <h3>Активность за последние 30 дней</h3>
-            <p className={'admin-note'}>
-              Запросы приложения и входящие сообщения боту. Это не число сессий. Время — UTC.
-            </p>
-            {!data.activity.length ? (
-              <p>За этот период активности не зафиксировано.</p>
-            ) : (
-              <table className={'admin-table'}>
-                <thead>
-                  <tr>
-                    <th>Дата</th>
-                    <th>Запросы</th>
-                    <th>Сообщения</th>
+            <div>
+              <dt>Последняя активность</dt>
+              <dd>{date(data.user.lastSeenAt, true)}</dd>
+            </div>
+            <div>
+              <dt>Карточки сейчас</dt>
+              <dd>{data.user._count.items}</dd>
+            </div>
+            <div>
+              <dt>Коллекции сейчас</dt>
+              <dd>{data.user._count.collections}</dd>
+            </div>
+          </dl>
+          <h3>Сохранённые материалы</h3>
+          <div className={'admin-types'}>
+            {data.itemTypes.map(row => (
+              <span className={'counter'} key={row.type}>
+                {(
+                  { link: 'Ссылки', photo: 'Фото', video: 'Видео', text: 'Заметки' } as Record<
+                    string,
+                    string
+                  >
+                )[row.type] || row.type}
+                : {row.count}
+              </span>
+            ))}
+            {!data.itemTypes.length && <p>Пока нет карточек.</p>}
+          </div>
+          <h3>Активность за последние 30 дней</h3>
+          <p className={'admin-note'}>
+            Запросы приложения и входящие сообщения боту. Это не число сессий. Время — UTC.
+          </p>
+          {!data.activity.length ? (
+            <p>За этот период активности не зафиксировано.</p>
+          ) : (
+            <table className={'admin-table'}>
+              <thead>
+                <tr>
+                  <th>Дата</th>
+                  <th>Запросы</th>
+                  <th>Сообщения</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.activity.map(row => (
+                  <tr key={row.day}>
+                    <td>{date(row.day)}</td>
+                    <td>{row.apiRequests}</td>
+                    <td>{row.botMessages}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {data.activity.map(row => (
-                    <tr key={row.day}>
-                      <td>{date(row.day)}</td>
-                      <td>{row.apiRequests}</td>
-                      <td>{row.botMessages}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </>
-        )}
-      </section>
-    </div>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
+      )}
+    </Dialog>
   );
 }
 
@@ -227,13 +201,14 @@ export function AdminPage() {
   return (
     <div className={'admin-shell'}>
       <main className={'admin-main'}>
-        <header>
-          <a className={'admin-brand'} href={'/'}>
-            {BRAND.name}
-            <span>✳</span>
+        <header className={'admin-header'}>
+          <a className={'admin-brand'} href={'/'} aria-label={`${BRAND.name} — ${COPY.backToApp}`}>
+            <BrandLogo />
           </a>
           <span className={'counter'}>Администратор</span>
-          <a href={'/'}>{COPY.backToApp}</a>
+          <a className={'ui-button secondary admin-back'} href={'/'}>
+            ← {COPY.backToApp}
+          </a>
         </header>
         <section className={'heading'}>
           <div>
@@ -242,9 +217,13 @@ export function AdminPage() {
             <p>Регистрации, использование приложения и сохранённые материалы.</p>
           </div>
           {overview && (
-            <button className={'chip'} disabled={loading} onClick={() => setRevision(v => v + 1)}>
+            <Button
+              variant={'secondary'}
+              disabled={loading}
+              onClick={() => setRevision(v => v + 1)}
+            >
               Обновить
-            </button>
+            </Button>
           )}
         </section>
         {loading && (
@@ -268,9 +247,9 @@ export function AdminPage() {
             ) : denied === 403 ? (
               <p>Ваш Telegram ID отсутствует в списке администраторов.</p>
             ) : null}
-            <button className={'primary'} onClick={() => setRevision(v => v + 1)}>
+            <Button variant={'primary'} onClick={() => setRevision(v => v + 1)}>
               Проверить вход ещё раз
-            </button>
+            </Button>
           </section>
         )}
         {overview && (
@@ -312,9 +291,9 @@ export function AdminPage() {
                     placeholder={'Имя, @username или Telegram ID'}
                   />
                 </label>
-                <button className={'primary'} type={'submit'}>
+                <Button variant={'primary'} type={'submit'}>
                   Найти
-                </button>
+                </Button>
                 <Select
                   aria-label={'Период активности'}
                   value={activeDays}
@@ -350,12 +329,12 @@ export function AdminPage() {
                           {users.users.map(user => (
                             <tr key={user.id}>
                               <td>
-                                <button
+                                <Button
                                   className={'admin-user-link'}
                                   onClick={() => setSelected(user.id)}
                                 >
                                   {user.name || 'Без имени'}
-                                </button>
+                                </Button>
                                 <small>
                                   {user.username ? `@${user.username} · ` : ''}
                                   {user.telegramId}
@@ -374,23 +353,23 @@ export function AdminPage() {
                     <p className={'empty'}>Пользователи не найдены.</p>
                   )}
                   <nav className={'admin-pagination'} aria-label={'Страницы пользователей'}>
-                    <button
-                      className={'chip'}
+                    <Button
+                      variant={'secondary'}
                       disabled={page === 1 || loading}
                       onClick={() => setPage(p => p - 1)}
                     >
                       Назад
-                    </button>
+                    </Button>
                     <span>
                       Страница {page} из {Math.max(1, Math.ceil(users.total / users.pageSize))}
                     </span>
-                    <button
-                      className={'chip'}
+                    <Button
+                      variant={'secondary'}
                       disabled={page * users.pageSize >= users.total || loading}
                       onClick={() => setPage(p => p + 1)}
                     >
                       Далее
-                    </button>
+                    </Button>
                   </nav>
                 </>
               )}

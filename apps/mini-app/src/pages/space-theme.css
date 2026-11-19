@@ -28,7 +28,6 @@
   background: var(--space-accent);
 }
 
-.app .filter-create,
 .app .space-settings-button,
 .app .space-settings-button:hover {
   color: var(--space-accent);

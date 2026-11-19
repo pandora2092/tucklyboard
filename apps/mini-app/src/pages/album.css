@@ -178,17 +178,6 @@
   line-height: 28px;
 }
 
-.cards .item-photo .preview {
-  margin: 10px 10px 0;
-  background: var(--space-soft);
-  border-radius: 4px;
-}
-
-.item-photo .preview img {
-  border: 5px solid var(--space-surface);
-  border-bottom-width: 14px;
-}
-
 .item-link .preview::before {
   position: absolute;
   top: -55px;
@@ -229,12 +218,6 @@
 .cards article:hover {
   box-shadow: 0 8px 25px #30392f0b;
   transform: translateY(-3px);
-}
-
-.cards.list .item-photo .preview {
-  width: 150px;
-  height: 150px;
-  margin: 10px;
 }
 
 .save-notice-backdrop {
@@ -311,12 +294,6 @@
 @media (width <= 700px) {
   .heading-title {
     gap: 12px;
-  }
-
-  .heading-title > .collection-cover {
-    flex-basis: 48px;
-    width: 48px;
-    height: 62px;
   }
 
   .heading .counter {

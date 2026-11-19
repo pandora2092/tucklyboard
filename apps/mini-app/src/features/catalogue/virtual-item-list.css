@@ -49,15 +49,3 @@
   contain: layout style paint;
   pointer-events: none;
 }
-
-@media (width <= 700px) {
-  .catalogue-results.list .preview,
-  .catalogue-measurements.list .preview {
-    width: 100px;
-  }
-
-  .catalogue-results.list .item-photo .preview,
-  .catalogue-measurements.list .item-photo .preview {
-    width: 90px;
-  }
-}

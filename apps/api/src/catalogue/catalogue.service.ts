@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, type User } from '@prisma/client';
+import { Prisma, type Item, type User } from '@prisma/client';
 
 import {
   BRAND,
@@ -35,6 +35,12 @@ import { SpacesService } from '../spaces/spaces.service';
 import { previewFileId, TelegramMedia, validMedia } from '../telegram/telegram-media.service';
 
 import { LegacyMedia } from './legacy-media.service';
+import {
+  matchesSmartRules,
+  smartWhere,
+  tagWhere,
+  type SmartCollectionDefinition,
+} from './smart-collections';
 
 const include = {
   collections: { include: { collection: true } },
@@ -43,36 +49,6 @@ const include = {
   statusDefinition: true,
 } satisfies Prisma.ItemInclude;
 type FullItem = Prisma.ItemGetPayload<{ include: typeof include }>;
-function tagWhere(tag: string): Prisma.ItemWhereInput {
-  return {
-    OR: [
-      { tags: { has: tag } },
-      { autoTags: { has: tag }, NOT: { dismissedAutoTags: { has: tag } } },
-    ],
-  };
-}
-export function smartWhere(rules: SmartRules): Prisma.ItemWhereInput {
-  const AND: Prisma.ItemWhereInput[] = [];
-  if (rules.type) {
-    AND.push({ type: rules.type });
-  }
-  if (rules.source) {
-    AND.push({ source: rules.source });
-  }
-  if (rules.status) {
-    AND.push({ status: rules.status });
-  }
-  if (rules.addedBy) {
-    AND.push({ userId: rules.addedBy });
-  }
-  if (rules.days) {
-    AND.push({ createdAt: { gte: new Date(Date.now() - rules.days * 86400000) } });
-  }
-  for (const tag of rules.tags || []) {
-    AND.push(tagWhere(tag));
-  }
-  return { AND };
-}
 @Injectable()
 export class CatalogueService {
   constructor(
@@ -84,11 +60,34 @@ export class CatalogueService {
     @Inject(EnrichmentService) private readonly enrichment: EnrichmentService,
     @Inject(EmbeddingsService) private readonly embeddings: EmbeddingsService,
   ) {}
-  private async view(item: FullItem, canEdit = true, wasDuplicate = false) {
+  private async smartDefinitions(spaceId: string | null): Promise<SmartCollectionDefinition[]> {
+    if (!spaceId) {
+      return [];
+    }
+    const rows = await this.db.collection.findMany({
+      where: { spaceId, NOT: { rules: { equals: Prisma.DbNull } } },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, rules: true },
+    });
+    return rows.flatMap(row => {
+      const parsed = SmartRulesSchema.safeParse(row.rules);
+      return parsed.success ? [{ id: row.id, name: row.name, rules: parsed.data }] : [];
+    });
+  }
+  private async view(
+    item: FullItem,
+    canEdit = true,
+    wasDuplicate = false,
+    definitions?: SmartCollectionDefinition[],
+  ) {
+    const smartCollections = (definitions ?? (await this.smartDefinitions(item.spaceId)))
+      .filter(collection => matchesSmartRules(item, collection.rules))
+      .map(({ id, name }) => ({ id, name }));
     const isTelegram = Boolean(item.telegramFileId);
     return ItemSchema.parse({
       ...item,
       tags: effectiveItemTags(item),
+      smartCollections,
       statusInfo: item.statusDefinition,
       createdAt: item.createdAt.toISOString(),
       collections: item.collections.map(entry => ({
@@ -236,18 +235,39 @@ export class CatalogueService {
     });
     return { ok: true };
   }
-  async sources(user: User, spaceId?: string) {
-    const access = await this.spaces.access(user, spaceId);
+  async sources(user: User, query: Pick<ItemQuery, 'spaceId' | 'type'>) {
+    const access = await this.spaces.access(user, query.spaceId);
     const rows = await this.db.item.groupBy({
       by: ['source'],
-      where: { spaceId: access.id, source: { not: '' } },
+      where: {
+        spaceId: access.id,
+        source: { not: '' },
+        ...(query.type ? { type: query.type } : {}),
+      },
       _count: { _all: true },
       orderBy: { source: 'asc' },
     });
     return rows.map(row => ({ source: row.source, count: row._count._all }));
   }
+  async tags(user: User, query: Pick<ItemQuery, 'spaceId' | 'type'>) {
+    const access = await this.spaces.access(user, query.spaceId);
+    const rows = await this.db.item.findMany({
+      where: { spaceId: access.id, ...(query.type ? { type: query.type } : {}) },
+      select: { tags: true, autoTags: true, dismissedAutoTags: true },
+    });
+    const counts = new Map<string, number>();
+    for (const row of rows) {
+      for (const tag of effectiveItemTags(row)) {
+        counts.set(tag, (counts.get(tag) || 0) + 1);
+      }
+    }
+    return [...counts]
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => a.tag.localeCompare(b.tag, 'ru'));
+  }
   async list(user: User, q: ItemQuery) {
     const access = await this.spaces.access(user, q.spaceId);
+    const definitions = await this.smartDefinitions(access.id);
     const AND: Prisma.ItemWhereInput[] = [{ spaceId: access.id }];
     if (q.type) {
       AND.push({ type: q.type });
@@ -263,6 +283,15 @@ export class CatalogueService {
     }
     if (q.collection === 'inbox') {
       AND.push({ collections: { none: {} } });
+      for (const collection of definitions) {
+        const condition = smartWhere(collection.rules);
+        // An empty rule set matches every item, so this inbox is empty.
+        AND.push(
+          Array.isArray(condition.AND) && !condition.AND.length
+            ? { id: { in: [] } }
+            : { NOT: condition },
+        );
+      }
     } else if (q.collection) {
       const collection = await this.db.collection.findFirst({
         where: { id: q.collection, spaceId: access.id },
@@ -310,7 +339,9 @@ export class CatalogueService {
       const offset = q.cursor && /^semantic:\d+$/.test(q.cursor) ? Number(q.cursor.slice(9)) : 0;
       const slice = ranked.slice(offset, offset + CATALOGUE_LIMITS.pageSize);
       return {
-        items: await Promise.all(slice.map(row => this.view(row.item, access.role !== 'viewer'))),
+        items: await Promise.all(
+          slice.map(row => this.view(row.item, access.role !== 'viewer', false, definitions)),
+        ),
         nextCursor:
           ranked.length > offset + CATALOGUE_LIMITS.pageSize
             ? `semantic:${offset + CATALOGUE_LIMITS.pageSize}`
@@ -346,7 +377,7 @@ export class CatalogueService {
       items: await Promise.all(
         rows
           .slice(0, CATALOGUE_LIMITS.pageSize)
-          .map(item => this.view(item, access.role !== 'viewer')),
+          .map(item => this.view(item, access.role !== 'viewer', false, definitions)),
       ),
       nextCursor:
         rows.length > CATALOGUE_LIMITS.pageSize ? rows[CATALOGUE_LIMITS.pageSize - 1].id : null,
@@ -543,6 +574,42 @@ export class CatalogueService {
   async bulk(user: User, data: BulkAction) {
     const access = await this.spaces.access(user, data.spaceId, true);
     const ids = [...new Set(data.ids)];
+    if (data.action === 'copyToSpace' || data.action === 'moveToSpace') {
+      if (!data.destinationSpaceId) {
+        throw new BadRequestException('Выберите пространство');
+      }
+      const destination = await this.spaces.access(user, data.destinationSpaceId, true);
+      if (destination.id === access.id) {
+        throw new BadRequestException('Выберите другое пространство');
+      }
+      await this.db.$transaction(
+        async tx => {
+          await tx.$queryRaw(
+            Prisma.sql`SELECT id FROM "Item" WHERE id IN (${Prisma.join(ids)}) ORDER BY id FOR UPDATE`,
+          );
+          const items = await tx.item.findMany({
+            where: { id: { in: ids }, spaceId: access.id },
+            orderBy: { id: 'asc' },
+          });
+          if (items.length !== ids.length) {
+            throw new NotFoundException('Часть карточек недоступна');
+          }
+          for (const item of items) {
+            await this.transferInto(
+              tx,
+              user,
+              item,
+              destination.id,
+              [],
+              data.includeNote ?? false,
+              data.action === 'moveToSpace',
+            );
+          }
+        },
+        { timeout: 30000 },
+      );
+      return { ok: true as const };
+    }
     const rows = await this.db.item.findMany({ where: { id: { in: ids }, spaceId: access.id } });
     if (rows.length !== ids.length) {
       throw new NotFoundException('Часть карточек недоступна');
@@ -599,77 +666,123 @@ export class CatalogueService {
     });
     return { ok: true as const };
   }
+  async move(user: User, id: string, spaceId: string) {
+    return this.transfer(user, id, spaceId, [], true, true);
+  }
   async copy(user: User, id: string, spaceId: string, ids: string[], includeNote: boolean) {
-    const { item } = await this.owned(user, id);
-    const access = await this.spaces.access(user, spaceId, true);
-    const folders = await this.collectionIds(access.id, ids);
-    const normalized = item.url ? canonicalUrl(item.url) : null;
+    return this.transfer(user, id, spaceId, ids, includeNote, false);
+  }
+  private async transfer(
+    user: User,
+    id: string,
+    spaceId: string,
+    ids: string[],
+    includeNote: boolean,
+    move: boolean,
+  ) {
+    const { item } = await this.owned(user, id, move);
+    const destination = await this.spaces.access(user, spaceId, true);
+    if (item.spaceId === destination.id) {
+      throw new BadRequestException('Выберите другое пространство');
+    }
+    const folders = await this.collectionIds(destination.id, ids);
     const result = await this.db.$transaction(async tx => {
-      const status = await resolveStatus(tx, access.id);
-      if (normalized) {
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${access.id + '|' + normalized},0))`;
-        const rows = await tx.item.findMany({
-          where: {
-            spaceId: access.id,
-            OR: [{ canonicalUrl: normalized }, { canonicalUrl: null, url: { not: null } }],
-          },
-        });
-        const existing = rows.find(row => {
-          try {
-            return (
-              row.canonicalUrl === normalized || (row.url && canonicalUrl(row.url) === normalized)
-            );
-          } catch {
-            return false;
-          }
-        });
-        if (existing) {
-          await tx.itemCollection.createMany({
-            data: folders.map(collectionId => ({ itemId: existing.id, collectionId })),
-            skipDuplicates: true,
-          });
-          return {
-            item: await tx.item.findUniqueOrThrow({ where: { id: existing.id }, include }),
-            duplicate: true,
-          };
-        }
+      await tx.$queryRaw`SELECT id FROM "Item" WHERE id = ${id} FOR UPDATE`;
+      const current = await tx.item.findFirst({ where: { id, spaceId: item.spaceId } });
+      if (!current) {
+        throw new NotFoundException('Карточка недоступна');
       }
-      const created = await tx.item.create({
-        data: {
-          userId: user.id,
-          spaceId: access.id,
-          status,
-          type: item.type,
-          title: item.title,
-          titleMode: item.titleMode,
-          text: includeNote ? item.text : '',
-          url: item.url,
-          canonicalUrl: normalized,
-          source: item.source,
-          sourceTitle: item.sourceTitle,
-          sourceDescription: item.sourceDescription,
-          author: item.author,
-          autoTags: autoTags(
-            [item.title, item.sourceTitle, item.sourceDescription, includeNote ? item.text : '']
-              .filter(Boolean)
-              .join(' '),
-          ),
-          tags: item.tags,
-          dismissedAutoTags: item.dismissedAutoTags,
-          metadataStatus: item.metadataStatus === 'processing' ? 'pending' : item.metadataStatus,
-          mediaKey: item.mediaKey,
-          mime: item.mime,
-          telegramFileId: item.telegramFileId,
-          telegramFileUniqueId: item.telegramFileUniqueId,
-          telegramMediaKind: item.telegramMediaKind,
-          telegramThumbnailFileId: item.telegramThumbnailFileId,
-          telegramFileSize: item.telegramFileSize,
-          collections: { create: folders.map(collectionId => ({ collectionId })) },
-        },
-        include,
-      });
-      return { item: created, duplicate: false };
+      return this.transferInto(tx, user, current, destination.id, folders, includeNote, move);
     });
     return this.view(result.item, true, result.duplicate);
+  }
+  private async transferInto(
+    tx: Prisma.TransactionClient,
+    user: User,
+    item: Item,
+    spaceId: string,
+    folders: string[],
+    includeNote: boolean,
+    move: boolean,
+  ) {
+    const normalized = item.url ? canonicalUrl(item.url) : null;
+    const status = await resolveStatus(tx, spaceId);
+    if (normalized) {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${spaceId + '|' + normalized},0))`;
+      const rows = await tx.item.findMany({
+        where: {
+          spaceId,
+          OR: [{ canonicalUrl: normalized }, { canonicalUrl: null, url: { not: null } }],
+        },
+      });
+      const existing = rows.find(row => {
+        try {
+          return (
+            row.canonicalUrl === normalized || (row.url && canonicalUrl(row.url) === normalized)
+          );
+        } catch {
+          return false;
+        }
+      });
+      if (existing) {
+        if (move) {
+          throw new BadRequestException(
+            'В выбранном пространстве уже есть такая ссылка. Исходные карточки оставлены на месте',
+          );
+        }
+        await tx.itemCollection.createMany({
+          data: folders.map(collectionId => ({ itemId: existing.id, collectionId })),
+          skipDuplicates: true,
+        });
+        return {
+          item: await tx.item.findUniqueOrThrow({ where: { id: existing.id }, include }),
+          duplicate: true,
+        };
+      }
+    }
+    if (move) {
+      await tx.itemCollection.deleteMany({ where: { itemId: item.id } });
+      const moved = await tx.item.update({
+        where: { id: item.id },
+        data: { spaceId, status, collectionId: null, canonicalUrl: normalized },
+        include,
+      });
+      return { item: moved, duplicate: false };
+    }
+    const created = await tx.item.create({
+      data: {
+        userId: user.id,
+        spaceId,
+        status,
+        type: item.type,
+        title: item.title,
+        titleMode: item.titleMode,
+        text: includeNote ? item.text : '',
+        url: item.url,
+        canonicalUrl: normalized,
+        source: item.source,
+        sourceTitle: item.sourceTitle,
+        sourceDescription: item.sourceDescription,
+        author: item.author,
+        autoTags: autoTags(
+          [item.title, item.sourceTitle, item.sourceDescription, includeNote ? item.text : '']
+            .filter(Boolean)
+            .join(' '),
+        ),
+        tags: item.tags,
+        dismissedAutoTags: item.dismissedAutoTags,
+        metadataStatus: item.metadataStatus === 'processing' ? 'pending' : item.metadataStatus,
+        mediaKey: item.mediaKey,
+        mime: item.mime,
+        telegramFileId: item.telegramFileId,
+        telegramFileUniqueId: item.telegramFileUniqueId,
+        telegramMediaKind: item.telegramMediaKind,
+        telegramThumbnailFileId: item.telegramThumbnailFileId,
+        telegramFileSize: item.telegramFileSize,
+        collections: { create: folders.map(collectionId => ({ collectionId })) },
+      },
+      include,
+    });
+    return { item: created, duplicate: false };
   }
 }

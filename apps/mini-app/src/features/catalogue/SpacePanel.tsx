@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 
-import { COPY, createWebInviteUrl, type Member, type Space } from '@tuckly/contracts';
+import {
+  COPY,
+  createWebInviteUrl,
+  parseInviteStartParameter,
+  type Member,
+  type Space,
+} from '@tuckly/contracts';
 
 import { catalogueApi } from '../../api/catalogue';
 import { errorMessage } from '../../api/client';
@@ -304,62 +310,100 @@ export function SpacePanel({
 }
 
 export function InvitePanel({ onJoined }: { onJoined: (id: string) => void }) {
-  const [token, setToken] = useState(
-      () =>
-        new URLSearchParams(location.search).get('invite') ||
-        new URLSearchParams(window.Telegram?.WebApp?.initData || '')
-          .get('start_param')
-          ?.replace(/^join_/, '') ||
-        '',
-    ),
-    [info, setInfo] = useState<{ spaceName: string; role: string } | null>(null),
-    [error, setError] = useState('');
+  const [token, setToken] = useState(() => {
+    const start = new URLSearchParams(window.Telegram?.WebApp?.initData || '').get('start_param');
+    return new URLSearchParams(location.search).get('invite') || parseInviteStartParameter(start);
+  });
+  const [info, setInfo] = useState<Awaited<ReturnType<typeof catalogueApi.inviteInfo>> | null>(
+    null,
+  );
+  const [error, setError] = useState('');
+  const [joining, setJoining] = useState(false);
+  const onJoinedRef = useRef(onJoined);
   useEffect(() => {
-    if (token) {
-      void catalogueApi
-        .inviteInfo(token)
-        .then(setInfo)
-        .catch(e => setError(errorMessage(e)));
+    onJoinedRef.current = onJoined;
+  }, [onJoined]);
+  const dismiss = useCallback(() => {
+    setToken('');
+    const url = new URL(location.href);
+    url.searchParams.delete('invite');
+    history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+  }, []);
+  useEffect(() => {
+    if (!token) {
+      return;
     }
-  }, [token]);
+    let active = true;
+    void catalogueApi
+      .inviteInfo(token)
+      .then(result => {
+        if (!active) {
+          return;
+        }
+        if (result.alreadyMember) {
+          dismiss();
+          onJoinedRef.current(result.spaceId);
+        } else {
+          setInfo(result);
+        }
+      })
+      .catch(e => {
+        if (active) {
+          setError(errorMessage(e));
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [token, dismiss]);
   if (!token) {
     return null;
   }
   return (
-    <div className={'invite-banner'}>
+    <section className={'invite-banner'} aria-label={'Приглашение в пространство'}>
+      <div className={'invite-banner-heading'}>
+        <p className={'invite-banner-label'}>Приглашение в пространство</p>
+        {info && <h2 className={'invite-banner-name'}>{info.spaceName}</h2>}
+      </div>
       {info ? (
-        <>
-          <span>
-            Приглашение в «{info.spaceName}» ({info.role === 'viewer' ? 'чтение' : 'редактирование'}
-            )
-          </span>
+        <div className={'invite-banner-actions'}>
           <Button
+            variant={'primary'}
+            disabled={joining}
             onClick={() => {
+              setJoining(true);
+              setError('');
               void catalogueApi
                 .join(token)
                 .then(result => {
-                  setToken('');
-                  history.replaceState(null, '', location.pathname);
-                  onJoined(result.spaceId);
+                  dismiss();
+                  onJoinedRef.current(result.spaceId);
                 })
-                .catch(e => setError(errorMessage(e)));
+                .catch(e => setError(errorMessage(e)))
+                .finally(() => setJoining(false));
             }}
           >
-            Вступить
+            {joining ? 'Вступаем…' : 'Вступить'}
           </Button>
-        </>
-      ) : (
-        <span>Проверяем приглашение…</span>
+          <Button variant={'secondary'} onClick={dismiss}>
+            {COPY.actions.close}
+          </Button>
+        </div>
+      ) : !error ? (
+        <p className={'invite-banner-status'} role={'status'}>
+          Проверяем приглашение…
+        </p>
+      ) : null}
+      {error && (
+        <p className={'invite-banner-error'} role={'alert'}>
+          {error}
+        </p>
       )}
-      <Button
-        onClick={() => {
-          setToken('');
-          history.replaceState(null, '', location.pathname);
-        }}
-      >
-        {COPY.actions.close}
-      </Button>
-      {error && <p role={'alert'}>{error}</p>}
-    </div>
+      {!info && (
+        <Button variant={'secondary'} onClick={dismiss}>
+          {COPY.actions.close}
+        </Button>
+      )}
+    </section>
   );
 }

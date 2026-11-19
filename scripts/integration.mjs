@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { createServer } from 'node:http';
 import { setTimeout } from 'node:timers/promises';
 
@@ -516,7 +516,33 @@ try {
   const invite = await (
     await request(`spaces/${shared.id}/invites`, 'POST', { role: 'viewer', days: 7 })
   ).json();
-  assert.equal(invite.telegramUrl, `https://t.me/tuckly_test_bot?start=join_${invite.token}`);
+  assert.equal(invite.token.length, 22);
+  assert.equal(invite.telegramUrl, `https://t.me/tuckly_test_bot?start=j_${invite.token}`);
+  const legacyInviteToken = randomBytes(24).toString('base64url');
+  await db.spaceInvite.create({
+    data: {
+      spaceId: shared.id,
+      role: 'viewer',
+      tokenHash: createHash('sha256').update(legacyInviteToken).digest('hex'),
+      expiresAt: new Date(Date.now() + 86400000),
+    },
+  });
+  assert.equal((await request(`invites/${legacyInviteToken}`)).status, 200);
+  assert.equal((await request(`invites/${legacyInviteToken}/join`, 'POST')).status, 201);
+  await db.spaceInvite.delete({
+    where: { tokenHash: createHash('sha256').update(legacyInviteToken).digest('hex') },
+  });
+  assert.deepEqual(await (await request(`invites/${invite.token}`)).json(), {
+    spaceId: shared.id,
+    spaceName: shared.name,
+    role: 'viewer',
+    alreadyMember: true,
+  });
+  assert.equal(
+    (await (await request(`invites/${invite.token}`, 'GET', undefined, id + 1)).json())
+      .alreadyMember,
+    false,
+  );
   assert.equal((await request(`items?spaceId=${shared.id}`, 'GET', undefined, id + 1)).status, 404);
   assert.equal(
     (await request(`invites/${invite.token}/join`, 'POST', undefined, id + 1)).status,
@@ -527,6 +553,11 @@ try {
     201,
   );
   assert.equal((await (await request(`spaces/${shared.id}/invites`)).json())[0].uses, 1);
+  assert.equal(
+    (await (await request(`invites/${invite.token}`, 'GET', undefined, id + 1)).json())
+      .alreadyMember,
+    true,
+  );
   assert.equal(
     (await request(`spaces/${shared.id}`, 'PATCH', { theme: 'rose' }, id + 1)).status,
     403,
@@ -750,6 +781,25 @@ try {
       ),
     );
     process.env.MINI_APP_URL = `https://${BRAND.name}.example`;
+    for (const start of [`j_${invite.token}`, `join_${legacyInviteToken}`]) {
+      await bot.handleUpdate({
+        update_id: 110,
+        message: {
+          ...message,
+          message_id: 210,
+          photo: undefined,
+          caption: undefined,
+          text: `/start ${start}`,
+          entities: [{ type: 'bot_command', offset: 0, length: 6 }],
+        },
+      });
+      assert.equal(
+        new URL(
+          calls.at(-1).payload.reply_markup.inline_keyboard[0][0].web_app.url,
+        ).searchParams.get('invite'),
+        start === `j_${invite.token}` ? invite.token : legacyInviteToken,
+      );
+    }
     await bot.handleUpdate({
       update_id: 11,
       message: {
@@ -1270,8 +1320,350 @@ try {
     (await (await request(`items?tag=${pageTag}`, 'GET', undefined, id + 1)).json()).total,
     0,
   );
+  // Cross-space transfers are atomic, preserve originals on copy/conflict and enforce both roles.
+  const transferSource = await (
+    await request('spaces', 'POST', { name: 'Transfer source' })
+  ).json();
+  const transferTarget = await (
+    await request('spaces', 'POST', { name: 'Transfer target' })
+  ).json();
+  const targetStatus = await (
+    await request(`spaces/${transferTarget.id}/statuses`, 'POST', {
+      name: 'Target default',
+      color: '#123456',
+    })
+  ).json();
+  await request(`spaces/${transferTarget.id}/statuses/${targetStatus.key}`, 'PATCH', {
+    isDefault: true,
+  });
+  const transferCollection = await (
+    await request('collections', 'POST', { spaceId: transferSource.id, name: 'Source collection' })
+  ).json();
+  const makeTransferItem = async (title, extra = {}) => {
+    const response = await request('items', 'POST', {
+      spaceId: transferSource.id,
+      type: 'text',
+      title,
+      text: 'Keep this note',
+      tags: ['transfer'],
+      collectionIds: [transferCollection.id],
+      ...extra,
+    });
+    assert.equal(response.status, 201);
+    return response.json();
+  };
+  const transferNote = await makeTransferItem('Transfer note');
+  const transferLink = await makeTransferItem('Transfer link', {
+    type: 'link',
+    url: `https://example.com/transfer-${id}`,
+  });
+  const transferRequest = (action, ids, extra = {}, actor = id) =>
+    request(
+      'items/bulk',
+      'POST',
+      { spaceId: transferSource.id, destinationSpaceId: transferTarget.id, action, ids, ...extra },
+      actor,
+    );
+  assert.equal(
+    (
+      await transferRequest('copyToSpace', [transferNote.id, transferLink.id], {
+        includeNote: true,
+      })
+    ).status,
+    201,
+  );
+  assert.equal(await db.item.count({ where: { spaceId: transferSource.id } }), 2);
+  const targetItems = await db.item.findMany({ where: { spaceId: transferTarget.id } });
+  assert.equal(targetItems.length, 2);
+  assert.ok(
+    targetItems.every(item => item.text === 'Keep this note' && item.status === targetStatus.key),
+  );
+  assert.equal(
+    await db.itemCollection.count({ where: { itemId: { in: targetItems.map(item => item.id) } } }),
+    0,
+  );
+  assert.equal((await transferRequest('copyToSpace', [transferLink.id])).status, 201);
+  assert.equal(
+    await db.item.count({ where: { spaceId: transferTarget.id } }),
+    2,
+    'links are not duplicated',
+  );
+  assert.equal(
+    (await transferRequest('moveToSpace', [transferNote.id, transferLink.id])).status,
+    400,
+  );
+  assert.equal(
+    await db.item.count({ where: { spaceId: transferSource.id } }),
+    2,
+    'conflicting batch fully rolls back',
+  );
+  assert.equal(await db.itemCollection.count({ where: { itemId: transferNote.id } }), 1);
+  assert.equal(
+    (
+      await transferRequest('moveToSpace', [transferNote.id], {
+        destinationSpaceId: transferSource.id,
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (await transferRequest('copyToSpace', [transferNote.id, canonical.id])).status,
+    404,
+    'mixed source batch is rejected',
+  );
+  assert.equal(await db.item.count({ where: { spaceId: transferTarget.id } }), 2);
+  const viewerInvite = await (
+    await request(`spaces/${transferSource.id}/invites`, 'POST', { role: 'viewer', days: 1 })
+  ).json();
+  await request(`invites/${viewerInvite.token}/join`, 'POST', undefined, id + 1);
+  assert.equal(
+    (await request(`items/${transferNote.id}/move`, 'POST', { spaceId: transferTarget.id }, id + 1))
+      .status,
+    403,
+    'viewer cannot move source',
+  );
+  assert.equal((await transferRequest('moveToSpace', [transferNote.id], {}, id + 1)).status, 403);
+  const readerCopy = await request(
+    `items/${transferNote.id}/copy`,
+    'POST',
+    { spaceId: await db.ensurePersonalSpace(reader.id) },
+    id + 1,
+  );
+  assert.equal(readerCopy.status, 201, 'viewer may copy readable content to their own space');
+  const readerNote = await (
+    await request('items', 'POST', { type: 'text', text: 'Reader source' }, id + 1)
+  ).json();
+  assert.equal(
+    (await request(`items/${readerNote.id}/move`, 'POST', { spaceId: transferSource.id }, id + 1))
+      .status,
+    403,
+    'viewer cannot write destination',
+  );
+  assert.equal(
+    (await request(`items/${readerNote.id}/copy`, 'POST', { spaceId: transferSource.id }, id + 1))
+      .status,
+    403,
+  );
+  const movedResponse = await request(`items/${transferNote.id}/move`, 'POST', {
+    spaceId: transferTarget.id,
+  });
+  assert.equal(movedResponse.status, 201);
+  const movedItem = await movedResponse.json();
+  assert.equal(movedItem.id, transferNote.id);
+  assert.equal(movedItem.text, 'Keep this note');
+  assert.deepEqual(movedItem.tags, transferNote.tags);
+  assert.deepEqual(movedItem.collections, []);
+  assert.equal(movedItem.status, targetStatus.key);
+  const batchNote = await makeTransferItem('Batch move');
+  const batchMedia = await db.item.create({
+    data: {
+      userId: me.id,
+      spaceId: transferSource.id,
+      type: 'photo',
+      title: 'Move media',
+      status: 'saved',
+      telegramFileId: 'mock-file',
+      telegramFileUniqueId: 'mock-unique',
+      telegramMessageId: `transfer:${id}`,
+    },
+  });
+  assert.equal((await transferRequest('moveToSpace', [batchNote.id, batchMedia.id])).status, 201);
+  const movedMedia = await db.item.findUniqueOrThrow({ where: { id: batchMedia.id } });
+  assert.equal(movedMedia.spaceId, transferTarget.id);
+  assert.equal(movedMedia.telegramFileId, 'mock-file');
+  assert.equal(movedMedia.telegramMessageId, `transfer:${id}`);
+  assert.equal(movedMedia.status, targetStatus.key);
+  // Source facets describe the full selected type, not just one loaded page.
+  const sourceScope = await (await request('spaces', 'POST', { name: 'Source facets' })).json();
+  await db.item.createMany({
+    data: [
+      ...Array.from({ length: 45 }, (_, index) => ({
+        userId: me.id,
+        spaceId: sourceScope.id,
+        type: 'link',
+        title: `Source link ${index}`,
+        source: 'example.com',
+        status: 'saved',
+      })),
+      {
+        userId: me.id,
+        spaceId: sourceScope.id,
+        type: 'photo',
+        title: 'Source photo',
+        source: 'Telegram',
+        status: 'saved',
+      },
+      {
+        userId: me.id,
+        spaceId: sourceScope.id,
+        type: 'video',
+        title: 'Source video',
+        source: 'Telegram',
+        status: 'saved',
+      },
+      {
+        userId: me.id,
+        spaceId: sourceScope.id,
+        type: 'text',
+        title: 'Source note',
+        source: 'Telegram',
+        status: 'saved',
+      },
+      {
+        userId: me.id,
+        spaceId: sourceScope.id,
+        type: 'text',
+        title: 'Source empty',
+        source: '',
+        status: 'saved',
+      },
+    ],
+  });
+  const readSources = async type => {
+    const params = new URLSearchParams({ spaceId: sourceScope.id, ...(type ? { type } : {}) });
+    const response = await request(`sources?${params}`);
+    assert.equal(response.status, 200);
+    return response.json();
+  };
+  assert.deepEqual(await readSources(), [
+    { source: 'Telegram', count: 3 },
+    { source: 'example.com', count: 45 },
+  ]);
+  assert.deepEqual(await readSources('link'), [{ source: 'example.com', count: 45 }]);
+  for (const type of ['text', 'photo', 'video']) {
+    assert.deepEqual(await readSources(type), [{ source: 'Telegram', count: 1 }]);
+  }
+  assert.equal((await request(`sources?spaceId=${sourceScope.id}&type=unknown`)).status, 400);
+  assert.equal(
+    (await request(`sources?spaceId=${sourceScope.id}&type=link`, 'GET', undefined, id + 1)).status,
+    404,
+  );
+  // Tag facets use the same effective tags as cards, across the complete type.
+  await db.item.updateMany({
+    where: { spaceId: sourceScope.id, type: 'link' },
+    data: {
+      tags: ['статья'],
+      autoTags: ['статья', 'обучение', 'скрытый'],
+      dismissedAutoTags: ['скрытый'],
+    },
+  });
+  await db.item.updateMany({
+    where: { spaceId: sourceScope.id, type: 'photo' },
+    data: { autoTags: ['фотография'] },
+  });
+  await db.item.updateMany({
+    where: { spaceId: sourceScope.id, type: 'text' },
+    data: { tags: ['заметка'] },
+  });
+  const readTags = async type => {
+    const params = new URLSearchParams({ spaceId: sourceScope.id, ...(type ? { type } : {}) });
+    const response = await request(`tags?${params}`);
+    assert.equal(response.status, 200);
+    return response.json();
+  };
+  assert.deepEqual(await readTags(), [
+    { tag: 'заметка', count: 2 },
+    { tag: 'обучение', count: 45 },
+    { tag: 'статья', count: 45 },
+    { tag: 'фотография', count: 1 },
+  ]);
+  assert.deepEqual(await readTags('link'), [
+    { tag: 'обучение', count: 45 },
+    { tag: 'статья', count: 45 },
+  ]);
+  assert.deepEqual(await readTags('photo'), [{ tag: 'фотография', count: 1 }]);
+  assert.deepEqual(await readTags('video'), []);
+  assert.equal((await request(`tags?spaceId=${sourceScope.id}&type=wrong`)).status, 400);
+  assert.equal(
+    (await request(`tags?spaceId=${sourceScope.id}`, 'GET', undefined, id + 1)).status,
+    404,
+  );
+  // Moving to a space dynamically applies smart rules and removes the item from inbox.
+  const smartSource = await (
+    await request('spaces', 'POST', { name: 'Smart transfer source' })
+  ).json();
+  const smartTarget = await (
+    await request('spaces', 'POST', { name: 'Smart transfer target' })
+  ).json();
+  const targetSmart = await (
+    await request('collections', 'POST', {
+      spaceId: smartTarget.id,
+      name: 'Умная',
+      rules: { type: 'text', status: 'saved', tags: ['Умная'] },
+    })
+  ).json();
+  const smartNote = await (
+    await request('items', 'POST', {
+      spaceId: smartSource.id,
+      type: 'text',
+      title: 'Smart transfer',
+      text: 'Test note',
+      tags: ['Умная'],
+    })
+  ).json();
+  const movedSmartResponse = await request(`items/${smartNote.id}/move`, 'POST', {
+    spaceId: smartTarget.id,
+  });
+  assert.equal(movedSmartResponse.status, 201);
+  const movedSmart = await movedSmartResponse.json();
+  assert.deepEqual(movedSmart.collections, []);
+  assert.deepEqual(movedSmart.smartCollections, [{ id: targetSmart.id, name: 'Умная' }]);
+  assert.equal(
+    await db.itemCollection.count({ where: { itemId: smartNote.id } }),
+    0,
+    'smart membership must not become a manual assignment',
+  );
+  const smartItems = async collection => {
+    const response = await request(
+      `items?${new URLSearchParams({ spaceId: smartTarget.id, ...(collection ? { collection } : {}) })}`,
+    );
+    assert.equal(response.status, 200);
+    return ItemListSchema.parse(await response.json());
+  };
+  assert.equal((await smartItems(targetSmart.id)).items[0].id, smartNote.id);
+  assert.equal((await smartItems('inbox')).total, 0);
+  assert.deepEqual((await smartItems()).items[0].smartCollections, [
+    { id: targetSmart.id, name: 'Умная' },
+  ]);
+  const withoutTag = await (
+    await request('items', 'POST', { spaceId: smartTarget.id, type: 'text', text: 'No tag' })
+  ).json();
+  assert.deepEqual(
+    (await smartItems('inbox')).items.map(item => item.id),
+    [withoutTag.id],
+  );
+  await request(`items/${smartNote.id}`, 'PATCH', { tags: [] });
+  assert.equal((await smartItems(targetSmart.id)).total, 0);
+  assert.equal((await smartItems('inbox')).total, 2);
+  assert.deepEqual(
+    (await smartItems()).items.find(item => item.id === smartNote.id).smartCollections,
+    [],
+  );
+  await request(`items/${smartNote.id}`, 'PATCH', { tags: ['Умная'] });
+  await request(`collections/${targetSmart.id}`, 'PATCH', {
+    name: 'Renamed smart',
+    rules: { type: 'text', status: 'done', tags: ['Умная'] },
+  });
+  assert.equal((await smartItems(targetSmart.id)).total, 0);
+  await request(`items/${smartNote.id}`, 'PATCH', { status: 'done' });
+  assert.deepEqual(
+    (await smartItems()).items.find(item => item.id === smartNote.id).smartCollections,
+    [{ id: targetSmart.id, name: 'Renamed smart' }],
+  );
+  assert.equal((await smartItems('inbox')).total, 1);
+  await request(`collections/${targetSmart.id}`, 'DELETE');
+  assert.equal((await smartItems('inbox')).total, 2);
+  const matchAll = await (
+    await request('collections', 'POST', { spaceId: smartTarget.id, name: 'Everything', rules: {} })
+  ).json();
+  assert.equal((await smartItems('inbox')).total, 0, 'empty smart rules match every card');
+  assert.equal((await smartItems(matchAll.id)).total, 2);
+  const sourceInbox = await (
+    await request(`items?spaceId=${smartSource.id}&collection=inbox`)
+  ).json();
+  assert.equal(sourceInbox.total, 0);
   console.info(
-    'Integration passed: collection/space management and deletion permissions, pagination and exact filtered totals, CRUD, canonical dedup/concurrency, multiple and smart collections, bulk actions, metadata preservation, topic search, shared spaces, custom status permissions/defaults/reorder/atomic replacement, roles/invites/revocation, Telegram ingestion, private previews, upload/resend and migration restart (external APIs mocked).',
+    'Integration passed: collection/space management and deletion permissions, pagination and exact filtered totals, CRUD, canonical dedup/concurrency, multiple and smart collections, bulk actions, atomic cross-space copy/move and permissions, metadata preservation, topic search, shared spaces, custom status permissions/defaults/reorder/atomic replacement, roles/invites/revocation, Telegram ingestion, private previews, upload/resend and migration restart (external APIs mocked).',
   );
 } catch (error) {
   await setTimeout(50);

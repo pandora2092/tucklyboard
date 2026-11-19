@@ -1,7 +1,7 @@
 import { Bot } from 'grammy';
 import type { Message, User } from 'grammy/types';
 
-import { COPY } from '@tuckly/contracts';
+import { COPY, parseInviteStartParameter } from '@tuckly/contracts';
 
 import { isAdmin } from '../auth/admin-access';
 import { canonicalUrl } from '../common/normalize-url';
@@ -111,8 +111,9 @@ export function createBot(db: Store, token: string) {
                     web_app: {
                       url: (() => {
                         const url = new URL(process.env.MINI_APP_URL!);
-                        if (/^join_[\w-]{32}$/.test(ctx.match)) {
-                          url.searchParams.set('invite', ctx.match.slice(5));
+                        const token = parseInviteStartParameter(ctx.match);
+                        if (token) {
+                          url.searchParams.set('invite', token);
                         }
                         return url.toString();
                       })(),

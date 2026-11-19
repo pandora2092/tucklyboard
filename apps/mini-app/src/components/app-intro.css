@@ -1,0 +1,160 @@
+.app-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: var(--spacing-6);
+  color: var(--space-text);
+  background: var(--space-background);
+}
+
+.app-intro-leaving {
+  animation: intro-dismiss var(--intro-exit-duration) ease-out both;
+}
+
+.app-intro-paused,
+.app-intro-paused * {
+  animation-play-state: paused !important;
+}
+
+.app-intro-content {
+  width: min(72vw, 260px);
+  text-align: center;
+}
+
+.app-intro-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 68px;
+}
+
+.app-intro-logo .brand-logo {
+  display: block;
+  width: 100%;
+  max-width: none;
+  height: auto;
+}
+
+.app-intro .brand-logo-flower {
+  color: var(--space-accent);
+}
+
+.app-intro .brand-logo-lettering path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: intro-letter-fill 2.2s ease-in-out infinite both;
+  animation-delay: calc(var(--intro-logo-elapsed, 0ms) + var(--logo-stroke-index) * 60ms);
+}
+
+.app-intro .brand-logo-flower path {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: intro-flower-bloom 2.2s ease-in-out infinite both;
+  animation-delay: var(--intro-logo-elapsed, 0ms);
+}
+
+.app-intro-loading {
+  margin: var(--spacing-4) 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--space-muted);
+}
+
+.app-intro-dots {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  justify-content: center;
+  height: 10px;
+  margin: var(--spacing-4) auto 0;
+}
+
+.app-intro-dots span {
+  width: 6px;
+  height: 6px;
+  background: var(--space-accent);
+  border-radius: 50%;
+  animation: intro-dot 1.1s ease-in-out infinite;
+}
+
+.app-intro-dots span:nth-child(2) {
+  animation-delay: 150ms;
+}
+
+.app-intro-dots span:nth-child(3) {
+  animation-delay: 300ms;
+}
+
+@keyframes intro-letter-fill {
+  0% {
+    opacity: 0.35;
+    stroke-dashoffset: 1;
+  }
+
+  40%,
+  80% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+
+  100% {
+    opacity: 0;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes intro-flower-bloom {
+  0%,
+  100% {
+    transform: rotate(-15deg) scale(0.85);
+  }
+
+  35% {
+    transform: rotate(18deg) scale(1.05);
+  }
+
+  65% {
+    transform: rotate(0) scale(1);
+  }
+}
+
+@keyframes intro-dot {
+  0%,
+  70%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+
+  35% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes intro-dismiss {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-intro,
+  .app-intro * {
+    animation: none;
+  }
+
+  .app-intro .brand-logo-lettering path {
+    stroke-dashoffset: 0;
+  }
+
+  .app-intro-dots span {
+    opacity: 0.65;
+  }
+}

@@ -1,42 +1,54 @@
-import type { Item } from '@tuckly/contracts';
+import { COPY, type Item } from '@tuckly/contracts';
 
 import { BrandMark } from '../../components/BrandMark';
-import { CollectionCover } from '../../components/CollectionCover';
 import { ItemActions } from '../../components/ItemActions';
 import { ItemCard } from '../../components/ItemCard';
 import { Button } from '../../components/ui/Button';
 import { Checkbox } from '../../components/ui/Checkbox';
+import { Icon } from '../../components/ui/Icon';
+import { BOOKMARK_TYPES } from '../../constants/bookmark-types';
 
 import type { BulkActions } from './useBulkActions';
 import type { Catalogue } from './useCatalogue';
 import { VirtualItemList } from './VirtualItemList';
 
-export function LibraryHeading({
-  data,
-}: {
-  data: Pick<Catalogue, 'collection' | 'collections' | 'total'>;
-}) {
-  const { collection, collections, total } = data;
-  const title =
-    collection === 'inbox'
-      ? 'Входящие'
-      : collections.find(c => c.id === collection)?.name || 'Всё сохранённое';
+import './library-types.css';
+
+export function LibraryHeading({ data }: { data: Pick<Catalogue, 'type' | 'setType' | 'total'> }) {
+  const { type, setType, total } = data;
+  const selected = BOOKMARK_TYPES.find(option => option.value === type) || BOOKMARK_TYPES[0];
   const plural = new Intl.PluralRules('ru').select(total || 0);
   const unit = plural === 'one' ? 'находка' : plural === 'few' ? 'находки' : 'находок';
   return (
-    <section className={'heading'}>
-      <div className={'heading-title'}>
-        {collection && collection !== 'inbox' && <CollectionCover name={title} />}
-        <div>
-          <p className={'eyebrow'}>ВАША МАЛЕНЬКАЯ КОЛЛЕКЦИЯ МИРА</p>
-          <h1>{title}</h1>
-          <p>Идеи, к которым хочется вернуться.</p>
+    <>
+      <section className={'heading'}>
+        <div className={'heading-title'}>
+          <span className={'bookmark-type-icon'} aria-hidden={'true'}>
+            <Icon name={selected.icon} />
+          </span>
+          <div>
+            <p className={'eyebrow'}>ВАША МАЛЕНЬКАЯ КОЛЛЕКЦИЯ МИРА</p>
+            <h1 aria-live={'polite'}>{selected.title}</h1>
+            <p>Идеи, к которым хочется вернуться.</p>
+          </div>
         </div>
+        <span className={'counter'}>
+          {total === null ? '…' : `${total.toLocaleString('ru')} ${unit}`}
+        </span>
+      </section>
+      <div className={'library-types'} role={'group'} aria-label={COPY.bookmarkTypes.label}>
+        {BOOKMARK_TYPES.map(option => (
+          <Button
+            key={option.value}
+            className={type === option.value ? 'library-type chosen' : 'library-type'}
+            aria-pressed={type === option.value}
+            onClick={() => setType(option.value)}
+          >
+            {option.label}
+          </Button>
+        ))}
       </div>
-      <span className={'counter'}>
-        {total === null ? '…' : `${total.toLocaleString('ru')} ${unit}`}
-      </span>
-    </section>
+    </>
   );
 }
 
@@ -44,12 +56,14 @@ export function LibraryResults({
   data,
   grid,
   selection,
-  onAdd,
+  onAdd: _onAdd,
   onOpen,
   onTag,
   onCopy,
+  onMove,
   onDelete,
   onCopyLink,
+  onReady,
 }: {
   data: Pick<
     Catalogue,
@@ -71,17 +85,18 @@ export function LibraryResults({
     | 'scrollAnchor'
     | 'searchScopeLimit'
   >;
+  onReady?: (ready: boolean) => void;
   grid: boolean;
   selection: BulkActions;
   onAdd: () => void;
   onOpen: (item: Item) => void;
   onTag: (tag: string) => void;
   onCopy: (item: Item) => void;
+  onMove: (item: Item) => void;
   onDelete: (item: Item) => void;
   onCopyLink: (url: string) => void;
 }) {
-  const { loading, error, items, query, type, tag, canEdit, statuses, cursor, loadingMore, more } =
-    data;
+  const { loading, error, items, query, type, tag, canEdit, cursor, loadingMore, more } = data;
   return (
     <>
       {data.searchScopeLimit && (
@@ -105,16 +120,19 @@ export function LibraryResults({
               ? 'Попробуйте другой запрос или фильтр.'
               : 'Сохраните ссылку, фотографию или мысль. Всё будет под рукой.'}
           </p>
+          {/* Ручное добавление временно скрыто; код оставлен для возврата.
           <Button
             variant={'primary'}
-            disabled={!canEdit || loading || !statuses.length}
-            onClick={() => onAdd()}
+            disabled={!canEdit || loading || !data.statuses.length}
+            onClick={() => _onAdd()}
           >
             ＋ Сохранить находку
           </Button>
+          */}
         </div>
       ) : (
         <VirtualItemList
+          onReady={onReady}
           items={items}
           grid={grid}
           scrollAnchor={data.scrollAnchor}
@@ -132,6 +150,7 @@ export function LibraryResults({
               <div className={'card-actions'}>
                 <ItemActions
                   onCopy={() => onCopy(item)}
+                  onMove={canEdit && item.canEdit ? () => onMove(item) : undefined}
                   onDelete={canEdit && item.canEdit ? () => onDelete(item) : undefined}
                   disabled={selection.busy}
                 />

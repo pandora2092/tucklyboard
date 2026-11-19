@@ -1,0 +1,56 @@
+.library-types {
+  display: flex;
+  gap: var(--spacing-1);
+  padding: var(--spacing-1);
+  margin-bottom: var(--spacing-5);
+  overflow-x: auto;
+  background: var(--space-soft);
+  border-radius: var(--radius-panel);
+}
+
+.library-type {
+  flex: 1;
+  min-height: 38px;
+  padding: var(--spacing-2) var(--spacing-3);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--space-muted);
+  white-space: nowrap;
+  border-radius: 8px;
+}
+
+.library-type.chosen {
+  font-weight: 700;
+  color: var(--space-accent);
+  background: var(--space-surface);
+  box-shadow: 0 1px 4px #30392f12;
+}
+
+.bookmark-type-icon {
+  --icon-size: 32px;
+
+  display: grid;
+  flex: 0 0 64px;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  color: var(--space-accent);
+  background: var(--space-soft);
+  border: 1px solid var(--space-border);
+  border-radius: var(--radius-panel);
+}
+
+@media (width <= 700px) {
+  .library-type {
+    padding: var(--spacing-2);
+    font-size: 11px;
+  }
+
+  .bookmark-type-icon {
+    --icon-size: 26px;
+
+    flex-basis: 48px;
+    width: 48px;
+    height: 48px;
+  }
+}

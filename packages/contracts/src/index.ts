@@ -13,7 +13,12 @@ export { effectiveItemTags, editedTagDismissals, ITEM_TAG_LIMIT } from './item-t
 export { CATALOGUE_LIMITS } from './catalogue-limits.js';
 export { BRAND_ARTWORK } from './brand-artwork.js';
 export { BRAND, COPY } from './brand.js';
-export { createWebInviteUrl } from './invites.js';
+export {
+  createWebInviteUrl,
+  INVITE_START_PREFIX,
+  isInviteToken,
+  parseInviteStartParameter,
+} from './invites.js';
 
 export { UPLOAD_LIMIT_MB, UPLOAD_LIMIT, UPLOAD_FORM_LIMITS, MEDIA_MIMES } from './upload-limits.js';
 export const ItemTypeSchema = z.enum(['link', 'text', 'photo', 'video']);
@@ -108,6 +113,8 @@ export const ItemQuerySchema = z
     searchMode: z.enum(['text', 'semantic']).optional(),
   })
   .strict();
+export const SourcesQuerySchema = ItemQuerySchema.pick({ spaceId: true, type: true });
+export const TagsQuerySchema = ItemQuerySchema.pick({ spaceId: true, type: true });
 export const CollectionSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -130,6 +137,7 @@ export const ItemSchema = z.object({
   statusInfo: StatusSchema.nullable().optional(),
   spaceId: z.string().nullable().optional(),
   collections: z.array(z.object({ id: z.string(), name: z.string() })).default([]),
+  smartCollections: z.array(z.object({ id: z.string(), name: z.string() })).optional(),
   addedBy: z.object({ id: z.string(), name: z.string() }).optional(),
   canEdit: z.boolean().default(true),
   wasDuplicate: z.boolean().optional(),
@@ -206,15 +214,22 @@ export const NewInviteSchema = InviteSchema.extend({
   telegramUrl: z.string().nullable(),
 });
 export const InviteInfoSchema = z.object({
+  spaceId: z.string(),
+  alreadyMember: z.boolean(),
   spaceName: z.string(),
   role: z.enum(['editor', 'viewer']),
 });
 export const JoinResultSchema = z.object({ spaceId: z.string() });
+export const TagsSchema = z.array(
+  z.object({ tag: z.string(), count: z.number().int().positive() }),
+);
 export const SourcesSchema = z.array(z.object({ source: z.string(), count: z.number().int() }));
 export const BulkSchema = z
   .object({
     spaceId: id.optional(),
     ids: z.array(id).min(1).max(100),
+    destinationSpaceId: id.optional(),
+    includeNote: z.boolean().optional(),
     action: z.enum([
       'addCollections',
       'removeCollections',
@@ -223,12 +238,15 @@ export const BulkSchema = z
       'markSaved',
       'setStatus',
       'delete',
+      'copyToSpace',
+      'moveToSpace',
     ]),
     collectionIds: z.array(id).max(30).optional(),
     status: StatusKeySchema.optional(),
     tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
   })
   .strict();
+export const MoveItemSchema = z.object({ spaceId: id }).strict();
 export const CopyItemSchema = z
   .object({
     spaceId: id,

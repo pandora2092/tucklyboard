@@ -12,15 +12,19 @@ import { Field } from '../../components/ui/Field';
 
 export function CopyItemDialog({
   item,
+  mode = 'copy',
   spaces,
   onClose,
   onOpen,
 }: {
   item: Item;
+  mode?: 'copy' | 'move';
   spaces: Space[];
   onClose: () => void;
   onOpen: (item: Item) => void;
 }) {
+  const moving = mode === 'move';
+  const copyText = moving ? COPY.moveItem : COPY.copyItem;
   const destinations = spaces.filter(space => space.id !== item.spaceId && space.role !== 'viewer');
   const [target, setTarget] = useState('');
   const [includeNote, setIncludeNote] = useState(false);
@@ -36,7 +40,9 @@ export function CopyItemDialog({
     setBusy(true);
     setError('');
     try {
-      const copied = await catalogueApi.copy(item.id, target, includeNote);
+      const copied = await (moving
+        ? catalogueApi.move(item.id, target)
+        : catalogueApi.copy(item.id, target, includeNote));
       setResult({ item: copied, spaceName: destination.name });
     } catch (error) {
       setError(errorMessage(error));
@@ -46,8 +52,8 @@ export function CopyItemDialog({
   }
   return (
     <Dialog
-      title={result ? COPY.actions.done : COPY.copyItem.heading}
-      label={COPY.itemActions.copyToSpace}
+      title={result ? COPY.actions.done : copyText.heading}
+      label={moving ? COPY.itemActions.moveToSpace : COPY.itemActions.copyToSpace}
       busy={busy}
       onClose={onClose}
       closeOnBackdrop
@@ -57,7 +63,7 @@ export function CopyItemDialog({
           <p role={'status'}>
             {result.item.wasDuplicate
               ? COPY.copyItem.duplicate(result.spaceName)
-              : COPY.copyItem.success(result.spaceName)}
+              : copyText.success(result.spaceName)}
           </p>
           {result.item.wasDuplicate && (
             <p className={'copy-dialog-description'}>{COPY.copyItem.duplicateDescription}</p>
@@ -67,18 +73,22 @@ export function CopyItemDialog({
               {COPY.actions.close}
             </Button>
             <Button type={'button'} variant={'primary'} onClick={() => onOpen(result.item)}>
-              {result.item.wasDuplicate ? COPY.actions.openItem : COPY.copyItem.openCopy}
+              {moving
+                ? COPY.moveItem.open
+                : result.item.wasDuplicate
+                  ? COPY.actions.openItem
+                  : COPY.copyItem.openCopy}
             </Button>
           </div>
         </>
       ) : (
         <form onSubmit={copy}>
-          <p className={'copy-dialog-description'}>{COPY.copyItem.description(item.title)}</p>
+          <p className={'copy-dialog-description'}>{copyText.description(item.title)}</p>
           {destinations.length ? (
             <>
-              <Field label={COPY.copyItem.destination}>
+              <Field label={copyText.destination}>
                 <Select
-                  aria-label={COPY.copyItem.destination}
+                  aria-label={copyText.destination}
                   value={target}
                   disabled={busy}
                   onChange={event => setTarget(event.target.value)}
@@ -91,15 +101,17 @@ export function CopyItemDialog({
                   ))}
                 </Select>
               </Field>
-              <label className={'inline-option'}>
-                <Checkbox
-                  checked={includeNote}
-                  disabled={busy}
-                  onChange={event => setIncludeNote(event.target.checked)}
-                />
-                {COPY.copyItem.includeNote}
-              </label>
-              <p className={'copy-dialog-description'}>{COPY.copyItem.defaults}</p>
+              {!moving && (
+                <label className={'inline-option'}>
+                  <Checkbox
+                    checked={includeNote}
+                    disabled={busy}
+                    onChange={event => setIncludeNote(event.target.checked)}
+                  />
+                  {COPY.copyItem.includeNote}
+                </label>
+              )}
+              <p className={'copy-dialog-description'}>{copyText.defaults}</p>
             </>
           ) : (
             <p className={'copy-dialog-description'}>{COPY.copyItem.noDestinations}</p>
@@ -118,7 +130,7 @@ export function CopyItemDialog({
               variant={'primary'}
               disabled={busy || !destinations.some(space => space.id === target)}
             >
-              {busy ? COPY.copyItem.creating : COPY.copyItem.create}
+              {busy ? copyText.creating : copyText.create}
             </Button>
           </div>
         </form>

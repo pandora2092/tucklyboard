@@ -148,9 +148,26 @@
 }
 
 .list .preview {
-  flex-shrink: 0;
-  width: 160px;
-  height: 170px;
+  flex: 0 0 50%;
+  align-self: stretch;
+  width: 50%;
+  height: auto;
+  min-height: 170px;
+}
+
+/* Match the empty measuring preview: fallback text must not change row height. */
+.list .preview > .media-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: inherit;
+  overflow: hidden;
+}
+
+.list .preview.text > .media-placeholder {
+  justify-content: flex-start;
 }
 
 .list .card-body {

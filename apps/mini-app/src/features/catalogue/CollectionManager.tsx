@@ -89,7 +89,6 @@ export function CollectionManager({
             onClose={() => setEditing(undefined)}
             onSaved={() => {
               setEditing(undefined);
-              setNotice('Коллекция сохранена');
               onChanged();
             }}
           />
@@ -190,8 +189,8 @@ export function CollectionManager({
         <div className={'settings-delete-panel'}>
           <h4>Удалить коллекцию «{deleting.name}»?</h4>
           <p>
-            Все закладки останутся в библиотеке и других коллекциях. Закладки без других коллекций
-            будут во входящих.
+            Все закладки останутся в библиотеке и других коллекциях. Во входящих будут закладки без
+            обычных и подходящих умных коллекций.
           </p>
           <div className={'settings-management-actions'}>
             <Button

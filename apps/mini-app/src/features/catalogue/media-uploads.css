@@ -1,0 +1,118 @@
+.media-uploads {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+  width: min(360px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.media-uploads-panel {
+  width: 100%;
+  max-height: 35dvh;
+  padding: 16px;
+  overflow-y: auto;
+  color: var(--space-text);
+  pointer-events: auto;
+  background: var(--space-surface);
+  border: 1px solid var(--space-border);
+  border-radius: 18px;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 0.12);
+}
+
+.media-uploads-heading {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.media-uploads-heading button {
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.media-uploads-toggle {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  min-height: 48px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--space-accent);
+  pointer-events: auto;
+  background: var(--space-surface);
+  border: 1px solid var(--space-border);
+  border-radius: 24px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.1);
+}
+
+.media-uploads-toggle.is-uploading {
+  border-color: var(--space-accent);
+  border-width: 2px;
+}
+
+.media-uploads-toggle.has-errors {
+  color: #a34735;
+  border-color: currentcolor;
+}
+
+.media-uploads h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.media-uploads p,
+.media-uploads small {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--space-muted);
+}
+
+.media-uploads ul {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.media-uploads li {
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid var(--space-border);
+}
+
+.media-uploads strong,
+.media-uploads small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.media-upload-state,
+.media-upload-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.media-upload-state progress {
+  width: 50px;
+  height: 6px;
+  accent-color: var(--space-accent);
+}
+
+.media-upload-actions:empty {
+  display: none;
+}
+
+.has-media-uploads {
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+}

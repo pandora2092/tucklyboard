@@ -2,7 +2,6 @@ import { createRoot } from 'react-dom/client';
 
 import { initializeFocus } from './lib/focus';
 import { initializeTelegram } from './lib/telegram';
-import { AdminPage } from './pages/AdminPage';
 import { LibraryPage } from './pages/LibraryPage';
 
 import './styles/tokens.css';
@@ -13,6 +12,9 @@ import './focus.css';
 
 initializeFocus();
 initializeTelegram();
-createRoot(document.getElementById('root')!).render(
-  window.location.pathname.replace(/\/+$/, '').endsWith('/admin') ? <AdminPage /> : <LibraryPage />,
-);
+const root = document.getElementById('root')!;
+if (window.location.pathname.replace(/\/+$/, '').endsWith('/admin')) {
+  void import('./pages/AdminPage').then(({ AdminPage }) => createRoot(root).render(<AdminPage />));
+} else {
+  createRoot(root).render(<LibraryPage />);
+}

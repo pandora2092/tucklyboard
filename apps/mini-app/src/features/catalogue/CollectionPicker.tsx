@@ -13,19 +13,23 @@ export function CollectionPicker({
   selected,
   onChange,
   disabled = false,
+  smartCollections = [],
 }: {
   collections: Collection[];
   selected: string[];
   onChange: (ids: string[]) => void;
   disabled?: boolean;
+  smartCollections?: { id: string; name: string }[];
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const panelId = useId();
   const available = collections.filter(collection => !collection.rules);
   const chosen = available.filter(collection => selected.includes(collection.id));
+  const count = chosen.length + smartCollections.length;
   const summary =
-    chosen.map(collection => collection.name).join(', ') || COPY.collectionPicker.inbox;
+    [...chosen, ...smartCollections].map(collection => collection.name).join(', ') ||
+    COPY.collectionPicker.inbox;
   const search = query.trim().toLocaleLowerCase('ru');
   const visible = available.filter(collection =>
     collection.name.toLocaleLowerCase('ru').includes(search),
@@ -42,9 +46,7 @@ export function CollectionPicker({
         <span className={'collection-picker-heading'}>
           <span className={'collection-picker-label'}>
             {COPY.collectionPicker.title}
-            {chosen.length > 0 && (
-              <span className={'collection-picker-count'}>{chosen.length}</span>
-            )}
+            {count > 0 && <span className={'collection-picker-count'}>{count}</span>}
           </span>
           <span className={'collection-picker-value'} title={summary}>
             {summary}
@@ -91,6 +93,13 @@ export function CollectionPicker({
           </>
         ) : (
           <p className={'collection-picker-hint'}>{COPY.collectionPicker.empty}</p>
+        )}
+        {smartCollections.length > 0 && (
+          <p className={'collection-picker-hint'}>
+            {COPY.collectionPicker.smartLabel}{' '}
+            {smartCollections.map(collection => collection.name).join(', ')}.{' '}
+            {COPY.collectionPicker.smartHint}
+          </p>
         )}
       </div>
     </div>

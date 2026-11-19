@@ -2,7 +2,13 @@ import './bulk-actions.css';
 
 import { useEffect, useState, type FormEvent } from 'react';
 
-import { COPY, type BookmarkStatus, type Collection, type Item } from '@tuckly/contracts';
+import {
+  COPY,
+  type BookmarkStatus,
+  type Collection,
+  type Item,
+  type Space,
+} from '@tuckly/contracts';
 
 import { Select } from '../../components/Select';
 import { Button } from '../../components/ui/Button';
@@ -17,6 +23,8 @@ const actions: BulkKind[] = [
   'removeCollections',
   'addTags',
   'setStatus',
+  'copyToSpace',
+  'moveToSpace',
   'delete',
 ];
 
@@ -25,17 +33,23 @@ export function BulkActionsBar({
   items,
   collections,
   statuses,
+  spaces,
+  spaceId,
 }: {
   selection: BulkActions;
   items: Item[];
   collections: Collection[];
   statuses: BookmarkStatus[];
+  spaces: Space[];
+  spaceId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [tags, setTags] = useState('');
   const count = selection.selectedIds.length;
   const isOpen = open && count > 0;
   const manualCollections = collections.filter(collection => !collection.rules);
+  const transferAction = selection.kind === 'copyToSpace' || selection.kind === 'moveToSpace';
+  const destinations = spaces.filter(space => space.id !== spaceId && space.role !== 'viewer');
   const collectionAction =
     selection.kind === 'addCollections' || selection.kind === 'removeCollections';
   useEffect(() => {
@@ -155,6 +169,48 @@ export function BulkActionsBar({
             </>
           ) : (
             <form className={'bulk-action-form'} onSubmit={submit}>
+              {transferAction && (
+                <>
+                  <Field
+                    label={
+                      selection.kind === 'moveToSpace'
+                        ? COPY.moveItem.destination
+                        : COPY.copyItem.destination
+                    }
+                  >
+                    <Select
+                      value={selection.destinationSpaceId}
+                      disabled={selection.busy}
+                      onChange={event => selection.setDestinationSpaceId(event.target.value)}
+                    >
+                      <option value={''}>{COPY.copyItem.selectSpace}</option>
+                      {destinations.map(space => (
+                        <option key={space.id} value={space.id}>
+                          {space.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  {selection.kind === 'copyToSpace' && (
+                    <label className={'inline-option'}>
+                      <Checkbox
+                        checked={selection.includeNote}
+                        disabled={selection.busy}
+                        onChange={event => selection.setIncludeNote(event.target.checked)}
+                      />
+                      {COPY.copyItem.includeNote}
+                    </label>
+                  )}
+                  <p className={'bulk-hint'}>
+                    {selection.kind === 'moveToSpace'
+                      ? COPY.moveItem.bulkHint
+                      : COPY.copyItem.defaults}
+                  </p>
+                  {!destinations.length && (
+                    <p className={'bulk-hint'}>{COPY.copyItem.noDestinations}</p>
+                  )}
+                </>
+              )}
               {collectionAction && (
                 <Field
                   label={
@@ -228,6 +284,8 @@ export function BulkActionsBar({
                 className={'bulk-apply'}
                 disabled={
                   selection.busy ||
+                  (transferAction &&
+                    !destinations.some(space => space.id === selection.destinationSpaceId)) ||
                   (collectionAction &&
                     !manualCollections.some(collection => collection.id === selection.folder)) ||
                   (selection.kind === 'setStatus' &&

@@ -154,18 +154,14 @@
   color: var(--space-accent);
 }
 
-.settings-section-collapse,
 .settings-show-more {
+  display: block;
   min-height: 44px;
   padding: var(--spacing-2) var(--spacing-3);
   margin-top: var(--spacing-3);
+  margin-bottom: var(--spacing-3);
   font-size: 12px;
   color: var(--space-accent);
   background: var(--space-soft);
   border-radius: var(--radius-control);
-}
-
-.settings-show-more {
-  display: block;
-  margin-bottom: var(--spacing-3);
 }

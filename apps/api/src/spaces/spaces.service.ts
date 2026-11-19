@@ -9,7 +9,13 @@ import {
 } from '@nestjs/common';
 import type { User } from '@prisma/client';
 
-import { DEFAULT_STATUSES, type SpaceRole, type UpdateSpace } from '@tuckly/contracts';
+import {
+  DEFAULT_STATUSES,
+  INVITE_START_PREFIX,
+  isInviteToken,
+  type SpaceRole,
+  type UpdateSpace,
+} from '@tuckly/contracts';
 
 import { Store } from '../database/database.service';
 import { TelegramMedia } from '../telegram/telegram-media.service';
@@ -129,7 +135,7 @@ export class SpacesService {
       throw new BadRequestException('Для приглашений создайте отдельное пространство');
     }
     const bot = await this.telegram.botUsername();
-    const token = randomBytes(24).toString('base64url');
+    const token = randomBytes(16).toString('base64url');
     const row = await this.db.spaceInvite.create({
       data: {
         spaceId,
@@ -145,7 +151,7 @@ export class SpacesService {
       revoked: false,
       uses: 0,
       token,
-      telegramUrl: bot ? `https://t.me/${bot}?start=join_${token}` : null,
+      telegramUrl: bot ? `https://t.me/${bot}?start=${INVITE_START_PREFIX}${token}` : null,
     };
   }
   async invites(user: User, id: string) {
@@ -179,12 +185,20 @@ export class SpacesService {
     });
     return { ok: true };
   }
-  async inviteInfo(token: string) {
+  async inviteInfo(user: User, token: string) {
     const invite = await this.validInvite(token);
-    return { spaceName: invite.space.name, role: invite.role };
+    const member = await this.db.spaceMember.findUnique({
+      where: { spaceId_userId: { spaceId: invite.spaceId, userId: user.id } },
+    });
+    return {
+      spaceId: invite.spaceId,
+      spaceName: invite.space.name,
+      role: invite.role,
+      alreadyMember: Boolean(member),
+    };
   }
   private async validInvite(token: string) {
-    if (!/^[\w-]{32}$/.test(token)) {
+    if (!isInviteToken(token)) {
       throw new NotFoundException('Приглашение недействительно');
     }
     const row = await this.db.spaceInvite.findUnique({

@@ -19,6 +19,7 @@ import {
   SourcesSchema,
   SpaceSchema,
   SpacesSchema,
+  TagsSchema,
   UpdateCollectionSchema,
   UpdateItemSchema,
   UpdateSpaceSchema,
@@ -89,17 +90,31 @@ export const catalogueApi = {
       method: 'POST',
     });
   },
-  sources(spaceId?: string) {
-    return request(
-      `sources${spaceId ? '?spaceId=' + encodeURIComponent(spaceId) : ''}`,
-      SourcesSchema,
-    );
+  sources(spaceId?: string, type?: ItemQuery['type'], signal?: AbortSignal) {
+    const params = new URLSearchParams();
+    if (spaceId) {
+      params.set('spaceId', spaceId);
+    }
+    if (type) {
+      params.set('type', type);
+    }
+    return request(`sources?${params}`, SourcesSchema, { signal });
+  },
+  tags(spaceId: string, type?: ItemQuery['type'], signal?: AbortSignal) {
+    const params = new URLSearchParams({ spaceId });
+    if (type) {
+      params.set('type', type);
+    }
+    return request(`tags?${params}`, TagsSchema, { signal });
   },
   bulk(body: BulkAction) {
     return request('items/bulk', OkSchema, { method: 'POST', body });
   },
   retry(id: string) {
     return request(`items/${id}/enrich`, OkSchema, { method: 'POST' });
+  },
+  move(id: string, spaceId: string) {
+    return request(`items/${id}/move`, ItemSchema, { method: 'POST', body: { spaceId } });
   },
   copy(id: string, spaceId: string, includeNote: boolean) {
     return request(`items/${id}/copy`, ItemSchema, {

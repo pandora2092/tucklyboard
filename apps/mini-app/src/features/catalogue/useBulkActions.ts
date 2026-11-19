@@ -18,6 +18,8 @@ export function useBulkActions({
 }) {
   const [checked, setChecked] = useState<string[]>([]);
   const [kind, setKind] = useState<BulkKind | ''>('');
+  const [destinationSpaceId, setDestinationSpaceId] = useState('');
+  const [includeNote, setIncludeNote] = useState(false);
   const [folder, setFolder] = useState('');
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
@@ -28,6 +30,8 @@ export function useBulkActions({
     setChecked([]);
     setKind('');
     setFolder('');
+    setDestinationSpaceId('');
+    setIncludeNote(false);
     setStatus('');
     setNotice('');
     setError('');
@@ -44,6 +48,9 @@ export function useBulkActions({
         spaceId: spaceId || undefined,
         ids: selectedIds,
         action,
+        ...(action === 'copyToSpace' || action === 'moveToSpace'
+          ? { destinationSpaceId, includeNote }
+          : {}),
         ...(action === 'setStatus' ? { status: value } : {}),
         collectionIds:
           (action === 'addCollections' || action === 'removeCollections') && folder ? [folder] : [],
@@ -71,6 +78,10 @@ export function useBulkActions({
     error,
     notice,
     clear,
+    setDestinationSpaceId,
+    destinationSpaceId,
+    setIncludeNote,
+    includeNote,
     setFolder,
     setStatus,
     selectAll(checked: boolean) {
@@ -85,6 +96,8 @@ export function useBulkActions({
     },
     chooseKind(value: BulkKind | '') {
       setKind(value);
+      setDestinationSpaceId('');
+      setIncludeNote(false);
       setFolder('');
       setStatus('');
       setNotice('');

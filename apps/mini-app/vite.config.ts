@@ -1,8 +1,11 @@
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { defineConfig, loadEnv } from 'vite';
 
 import { COPY } from '@tuckly/contracts';
+
+import { bootMarkup } from './src/lib/boot-markup';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, fileURLToPath(new URL('../../', import.meta.url)), 'DEV_TUNNEL_HOST');
@@ -10,8 +13,19 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       {
-        name: 'product-title',
-        transformIndexHtml: html => html.replace('__APP_TITLE__', COPY.pageTitle),
+        name: 'product-shell',
+        transformIndexHtml: {
+          order: 'pre',
+          handler: html =>
+            html
+              .replace('__APP_TITLE__', COPY.pageTitle)
+              .replace('__BOOT_MARKUP__', bootMarkup())
+              .replace(
+                '/* __BOOT_STYLES__ */',
+                readFileSync(new URL('./src/styles/tokens.css', import.meta.url), 'utf8') +
+                  readFileSync(new URL('./src/components/app-intro.css', import.meta.url), 'utf8'),
+              ),
+        },
       },
     ],
     server: {

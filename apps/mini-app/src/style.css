@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
-
 :root {
   font-family: Manrope, sans-serif;
   font-synthesis: none;
@@ -275,8 +273,7 @@ footer {
 }
 
 .member-row,
-.inline-option,
-.invite-banner {
+.inline-option {
   display: flex;
   flex-wrap: wrap;
   gap: var(--spacing-3);
@@ -286,16 +283,4 @@ footer {
 
 .member-row {
   justify-content: space-between;
-}
-
-.invite-banner button {
-  padding: var(--spacing-2) var(--spacing-3);
-  background: var(--space-soft);
-  border-radius: var(--radius-panel);
-}
-
-.invite-banner {
-  padding: var(--spacing-5);
-  background: var(--space-soft);
-  border-radius: 16px;
 }

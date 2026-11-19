@@ -92,7 +92,10 @@ export function ItemCard({
           </span>
         )}
         <footer>
-          <span>{i.collections.map(c => c.name).join(' · ') || 'Входящие'}</span>
+          <span>
+            {[...i.collections, ...(i.smartCollections || [])].map(c => c.name).join(' · ') ||
+              'Входящие'}
+          </span>
           <span>
             {new Date(i.createdAt).toLocaleDateString('ru', {
               day: 'numeric',

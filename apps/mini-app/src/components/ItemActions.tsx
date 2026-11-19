@@ -10,10 +10,12 @@ import './item-actions.css';
 
 export function ItemActions({
   onCopy,
+  onMove,
   onDelete,
   disabled = false,
 }: {
   onCopy: () => void;
+  onMove?: () => void;
   onDelete?: () => void;
   disabled?: boolean;
 }) {
@@ -110,6 +112,17 @@ export function ItemActions({
             >
               {COPY.itemActions.copyToSpace}
             </Button>
+            {onMove && (
+              <Button
+                type={'button'}
+                onClick={() => {
+                  setOpen(false);
+                  onMove();
+                }}
+              >
+                {COPY.itemActions.moveToSpace}
+              </Button>
+            )}
             {onDelete && (
               <Button
                 type={'button'}

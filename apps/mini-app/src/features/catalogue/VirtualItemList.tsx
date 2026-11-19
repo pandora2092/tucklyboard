@@ -28,6 +28,7 @@ function contentKey(item: Item) {
     item.tags,
     item.statusInfo?.name,
     item.collections.map(collection => collection.name),
+    item.smartCollections?.map(collection => collection.name),
   ]);
 }
 
@@ -37,7 +38,9 @@ export function VirtualItemList({
   scrollAnchor,
   renderItem,
   renderMeasurement,
+  onReady,
 }: {
+  onReady?: (ready: boolean) => void;
   items: Item[];
   grid: boolean;
   scrollAnchor: CatalogueScrollAnchor | null;
@@ -66,6 +69,9 @@ export function VirtualItemList({
     [keys, heights],
   );
   const ready = layout.width > 0 && !missing.length;
+  useLayoutEffect(() => {
+    onReady?.(ready);
+  }, [ready, onReady]);
   useLayoutEffect(() => {
     const element = root.current!;
     const measure = () => {

@@ -12,19 +12,19 @@ import '../../pages/library-header.css';
 export function LibraryHeader({
   data,
   changeSpace,
-  onAdd,
+  onAdd: _onAdd,
   onSettings,
   onMembers,
   onCreateSpace,
 }: {
-  data: Pick<Catalogue, 'spaces' | 'activeSpace' | 'canEdit' | 'loading' | 'statuses' | 'isAdmin'>;
+  data: Pick<Catalogue, 'spaces' | 'activeSpace' | 'canEdit' | 'loading' | 'statuses'>;
   changeSpace: (id: string) => void;
   onAdd: () => void;
   onSettings: () => void;
   onMembers: () => void;
   onCreateSpace: () => void;
 }) {
-  const { spaces, activeSpace, canEdit, loading, statuses, isAdmin } = data;
+  const { spaces, activeSpace } = data;
   return (
     <header className={'library-header'}>
       <div className={'mobile-brand'} role={'img'} aria-label={BRAND.name}>
@@ -46,13 +46,15 @@ export function LibraryHeader({
           ))}
         </Select>
       </div>
+      {/* Ручное добавление временно скрыто; код оставлен для возврата.
       <Button
         variant={'primary'}
-        disabled={!canEdit || loading || !statuses.length}
-        onClick={() => onAdd()}
+        disabled={!data.canEdit || data.loading || !data.statuses.length}
+        onClick={() => _onAdd()}
       >
         ＋ Добавить
       </Button>
+      */}
       <nav className={'space-actions'} aria-label={'Управление пространством'}>
         {activeSpace && (
           <Button
@@ -77,7 +79,6 @@ export function LibraryHeader({
           </Button>
         )}
         <Button onClick={() => onCreateSpace()}>＋ Пространство</Button>
-        {isAdmin && <a href={'/admin'}>Админка</a>}
       </nav>
     </header>
   );

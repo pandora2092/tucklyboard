@@ -1,4 +1,6 @@
 :root {
+  scrollbar-gutter: stable;
+
   --space-accent: #536c42;
   --space-soft: #e7eddf;
   --space-background: #f7f8f3;

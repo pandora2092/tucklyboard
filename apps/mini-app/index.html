@@ -3,13 +3,46 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-    <meta name="theme-color" content="#f7f6f2" />
+    <meta name="theme-color" content="#f7f8f3" />
     <title>__APP_TITLE__</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+      /* __BOOT_STYLES__ */
+      html {
+        background: var(--space-background);
+      }
+      body {
+        margin: 0;
+      }
+      .app-boot {
+        font-family: Manrope, system-ui, sans-serif;
+        animation: none;
+      }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      id="app-fonts"
+      rel="stylesheet"
+      media="print"
+      href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&amp;family=DM+Sans:wght@400;500;600;700&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap"
+    />
+    <script id="telegram-sdk" defer src="https://telegram.org/js/telegram-web-app.js"></script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">__BOOT_MARKUP__</div>
+    <script>
+      window.__TUCKLY_LOGO_STARTED_AT__ = performance.now();
+      const fonts = document.getElementById('app-fonts');
+      fonts.addEventListener('load', () => {
+        fonts.media = 'all';
+      });
+      if (fonts.sheet) fonts.media = 'all';
+      document.getElementById('telegram-sdk').addEventListener('load', () => {
+        window.Telegram?.WebApp?.ready();
+        window.Telegram?.WebApp?.expand();
+      });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

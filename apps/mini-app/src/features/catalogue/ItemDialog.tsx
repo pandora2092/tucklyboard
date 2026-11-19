@@ -1,6 +1,12 @@
 import { useState, type FormEvent } from 'react';
 
-import { COPY, type BookmarkStatus, type Collection, type Item } from '@tuckly/contracts';
+import {
+  COPY,
+  type BookmarkStatus,
+  type Collection,
+  type Item,
+  type ItemDetails,
+} from '@tuckly/contracts';
 
 import { catalogueApi } from '../../api/catalogue';
 import { errorMessage } from '../../api/client';
@@ -26,6 +32,8 @@ export function ItemDialog({
   onClose,
   onSaved,
   onCopy,
+  onMove,
+  onUpload,
 }: {
   item: Item | null;
   spaceId?: string;
@@ -35,6 +43,8 @@ export function ItemDialog({
   onClose: () => void;
   onSaved: (result?: 'deleted') => void;
   onCopy: (item: Item) => void;
+  onMove: (item: Item) => void;
+  onUpload: (file: File, details: ItemDetails) => void;
 }) {
   const [title, setTitle] = useState(item?.title || ''),
     [url, setUrl] = useState(item?.url || ''),
@@ -44,6 +54,7 @@ export function ItemDialog({
     [status, setStatus] = useState(item?.status || statuses.find(row => row.isDefault)?.key || ''),
     [file, setFile] = useState<File | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [confirmCopy, setConfirmCopy] = useState(false);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
@@ -67,7 +78,8 @@ export function ItemDialog({
       folders.length !== item.collections.length ||
       item.collections.some(c => !folders.includes(c.id))),
   );
-  function requestCopy() {
+  function requestCopy(move = false) {
+    setMoving(move);
     if (!item) {
       return;
     }
@@ -75,7 +87,7 @@ export function ItemDialog({
       setError('');
       setConfirmCopy(true);
     } else {
-      onCopy(item);
+      (move ? onMove : onCopy)(item);
     }
   }
   async function save(e: FormEvent, copyAfter = false) {
@@ -102,7 +114,8 @@ export function ItemDialog({
         status: status || undefined,
       };
       if (file && !item) {
-        await catalogueApi.upload(file, common);
+        onUpload(file, common);
+        return;
       } else if (item) {
         const { spaceId: _space, ...changes } = common;
         await catalogueApi.update(item.id, { ...changes, status });
@@ -120,7 +133,7 @@ export function ItemDialog({
         }
       }
       if (copyAfter && item) {
-        onCopy({ ...item, title: common.title, text, tags: common.tags });
+        (moving ? onMove : onCopy)({ ...item, title: common.title, text, tags: common.tags });
       } else {
         onSaved();
       }
@@ -173,12 +186,20 @@ export function ItemDialog({
       onClose={onClose}
       closeOnBackdrop
       headerActions={
-        item && !confirmCopy ? <ItemActions disabled={busy} onCopy={requestCopy} /> : undefined
+        item && !confirmCopy ? (
+          <ItemActions
+            disabled={busy}
+            onCopy={() => requestCopy()}
+            onMove={!readOnly ? () => requestCopy(true) : undefined}
+          />
+        ) : undefined
       }
     >
       {confirmCopy ? (
         <form onSubmit={event => save(event, true)}>
-          <p className={'copy-dialog-description'}>{COPY.copyItem.saveDescription}</p>
+          <p className={'copy-dialog-description'}>
+            {moving ? COPY.moveItem.saveDescription : COPY.copyItem.saveDescription}
+          </p>
           {error && (
             <p className={'error'} role={'alert'}>
               {error}
@@ -189,7 +210,11 @@ export function ItemDialog({
               {COPY.actions.cancel}
             </Button>
             <Button type={'submit'} variant={'primary'} disabled={busy || !title.trim()}>
-              {busy ? COPY.actions.saving : COPY.copyItem.saveAndContinue}
+              {busy
+                ? COPY.actions.saving
+                : moving
+                  ? COPY.moveItem.saveAndContinue
+                  : COPY.copyItem.saveAndContinue}
             </Button>
           </div>
         </form>
@@ -268,6 +293,7 @@ export function ItemDialog({
           )}
           <CollectionPicker
             collections={collections}
+            smartCollections={item?.smartCollections}
             selected={folders}
             onChange={setFolders}
             disabled={readOnly}

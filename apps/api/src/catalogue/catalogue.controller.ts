@@ -29,6 +29,9 @@ import {
   ItemDetailsSchema,
   ItemQuerySchema,
   MEDIA_MIMES,
+  MoveItemSchema,
+  SourcesQuerySchema,
+  TagsQuerySchema,
   UpdateCollectionSchema,
   UpdateItemSchema,
   UPLOAD_FORM_LIMITS,
@@ -67,14 +70,24 @@ export class CatalogueController {
   @Post('items') add(@CurrentUser() user: User, @Body() body: unknown) {
     return this.catalogue.add(user, parse(CreateItemSchema, body));
   }
-  @Get('sources') sources(@CurrentUser() user: User, @Query('spaceId') spaceId?: string) {
-    return this.catalogue.sources(user, spaceId);
+  @Get('sources') sources(@CurrentUser() user: User, @Query() query: unknown) {
+    return this.catalogue.sources(user, parse(SourcesQuerySchema, query));
+  }
+  @Get('tags') tags(@CurrentUser() user: User, @Query() query: unknown) {
+    return this.catalogue.tags(user, parse(TagsQuerySchema, query));
   }
   @Post('items/bulk') bulk(@CurrentUser() user: User, @Body() body: unknown) {
     return this.catalogue.bulk(user, parse(BulkSchema, body));
   }
   @Post('items/:id/enrich') enrich(@CurrentUser() user: User, @Param('id') id: string) {
     return this.catalogue.retry(user, id);
+  }
+  @Post('items/:id/move') move(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    return this.catalogue.move(user, id, parse(MoveItemSchema, body).spaceId);
   }
   @Post('items/:id/copy') copy(
     @CurrentUser() user: User,

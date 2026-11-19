@@ -48,9 +48,6 @@ export function SettingsSection({
       </h3>
       <div id={contentId} hidden={!open}>
         {children}
-        <Button className={'settings-section-collapse'} disabled={disabled} onClick={collapse}>
-          Свернуть
-        </Button>
       </div>
     </section>
   );
